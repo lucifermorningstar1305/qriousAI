@@ -13,7 +13,7 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.block1 = nn.Sequential(
-            nn.Dropout(p=.25)
+            nn.Dropout(p=.25),
             nn.Conv2d(in_channels=input_channels, out_channels=64, kernel_size=3, stride=1, padding=1), # (224 x 224 x 64)
             nn.SiLU(), 
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1), # (224 x 224 x 64)
