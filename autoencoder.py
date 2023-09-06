@@ -13,48 +13,49 @@ class Encoder(nn.Module):
         super().__init__()
 
         self.block1 = nn.Sequential(
+            nn.Dropout(p=.25)
             nn.Conv2d(in_channels=input_channels, out_channels=64, kernel_size=3, stride=1, padding=1), # (224 x 224 x 64)
-            nn.LeakyReLU(), 
+            nn.SiLU(), 
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1), # (224 x 224 x 64)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.MaxPool2d(kernel_size=2, stride=2) # (112 x 112 x 64)
         )
         self.block2 = nn.Sequential(
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1), # (112 x 112 x 128)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1), # (112 x 112 x 128)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.MaxPool2d(kernel_size=2, stride=2) # (56 x 56 x 128)
         )
 
         self.block3 = nn.Sequential(
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, stride=1, padding=1), # (56 x 56 x 256)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1), # (56 x 56 x 256)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1), # (56 x 56 x 256)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.MaxPool2d(kernel_size=2, stride=2) # (28 x 28 x 256)
         )
         
         self.block4 = nn.Sequential(
             nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, stride=1, padding=1), # (28 x 28 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (28 x 28 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (28 x 28 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.MaxPool2d(kernel_size=2, stride=2) # (14 x 14 x 512)
         )
 
         self.block5 = nn.Sequential(
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (14 x 14 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (14 x 14 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (14 x 14 x 512)
-            nn.LeakyReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2) # (7 x 7 x 512)
+            nn.SiLU(),
+            nn.AdaptiveAvgPool2d(7) # (7 x 7 x 512)
         )
 
         self.linear = nn.Sequential(
@@ -63,7 +64,7 @@ class Encoder(nn.Module):
         )
 
     def forward(self, x):
-        
+
         x = self.block1(x)
         x = self.block2(x)
         x = self.block3(x)
@@ -85,51 +86,51 @@ class Decoder(nn.Module):
 
         self.block1 = nn.Sequential(
             nn.ConvTranspose2d(in_channels=512, out_channels=512, kernel_size=2, stride=2, output_padding=0, padding=0), # (14 x 14 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (14 x 14 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (14 x 14 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (14 x 14 x 512)
-            nn.LeakyReLU()
+            nn.SiLU()
         )
 
         self.block2 = nn.Sequential(
             nn.ConvTranspose2d(in_channels=512, out_channels=512, kernel_size=2, stride=2, output_padding=0, padding=0), # (28 x 28 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (28 x 28 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, stride=1, padding=1), # (28 x 28 x 512)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=512, out_channels=256, kernel_size=3, stride=1, padding=1), # (28 x 28 x 256)
-            nn.LeakyReLU()
+            nn.SiLU()
         )
 
         self.block3 = nn.Sequential(
             nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=2, stride=2, output_padding=0, padding=0), # (56 x 56 x 256)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1), # (56 x 56 x 256)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, stride=1, padding=1), # (56 x 56 x 256)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, stride=1, padding=1), # (56 x 56 x 128)
-            nn.LeakyReLU()
+            nn.SiLU()
         )
 
         self.block4 = nn.Sequential(
             nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=2, stride=2, output_padding=0, padding=0), # (112 x 112 x 128)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1), # (112 x 112 x 128)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=128, out_channels=64, kernel_size=3, stride=1, padding=1), # (112 x 112 x 64)
-            nn.LeakyReLU()
+            nn.SiLU()
         )
 
         self.block5 = nn.Sequential(
             nn.ConvTranspose2d(in_channels=64, out_channels=64, kernel_size=2, stride=2, output_padding=0, padding=0), # (224 x 224 x 64)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1), # (224 x 224 x 64)
-            nn.LeakyReLU(),
+            nn.SiLU(),
             nn.Conv2d(in_channels=64, out_channels=output_channels, kernel_size=3, stride=1, padding=1), # (224 x 224 x 3)
             nn.Tanh()
         )
@@ -172,7 +173,7 @@ class AutoEncoder(pl.LightningModule):
         x = batch["image"]
         x_hat = self(x)
 
-        reconst_loss = F.mse_loss(x_hat, x, reduction="none").sum(dim=[1, 2, 3]).mean(dim=[0])
+        reconst_loss = F.mse_loss(x_hat, x)
         return reconst_loss
     
 

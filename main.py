@@ -9,23 +9,26 @@ import torch
 import lightning.pytorch as pl
 import torch.utils.data as td
 import albumentations as A
+import pickle
 
 from collections import defaultdict
 from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KernelDensity
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar, LearningRateMonitor
 from lightning.pytorch.loggers.wandb import WandbLogger
 from rich.progress import track
 from rich import print as rprint
+from pathlib import Path
 
 
 from autoencoder import Encoder, Decoder, AutoEncoder
 from create_torch_dataset import AnimalDataset
-from utils import print_table, get_val_images, GenerateCallback
+from utils import print_table, get_val_images, GenerateCallback, get_latent_reps_and_error, calc_density
 
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--objective", "-o", type=str, required=True, help="whether to train/test")
+    parser.add_argument("--objective", "-o", type=str, required=True, help="whether to train/anomaly/test")
     parser.add_argument("--data_dir", "-d", type=str, required=True, help="directory of the data")
     parser.add_argument("--latent_dim", "-l", type=int, required=False, default=128, help="the latent dimension for the autoencoder")
     parser.add_argument("--max_epochs", "-e", type=int, required=False, default=500, help="max epochs to train")
@@ -48,6 +51,13 @@ if __name__ == "__main__":
     val_batch_size = args.val_batch_size
     model_checkpoint = args.model_checkpoint
     checkpoint_dir = args.checkpoint_dir
+
+    if not os.path.exists("./data"):
+        os.mkdir("./data")
+
+    if not os.path.exists("./kde_models/"):
+        os.mkdir("./kde_models/")
+
 
     if objective == "train":
         wandb.login()
@@ -147,6 +157,76 @@ if __name__ == "__main__":
 
         # Fit the model
         trainer.fit(autoenc, train_dataloaders=train_dl, val_dataloaders=val_dl)
+
+        kde = KernelDensity(kernel="gaussian", bandwidth=.2)
+        
+        encoded_preds = list()
+
+        with torch.no_grad():
+            encoder = autoenc.encoder.eval().to(torch.device("cuda:0"))
+            for batch in track(train_dl):
+                encoded_preds.append(encoder(batch["image"].to(torch.device("cuda:0"))))
+
+        encoded_preds = torch.cat(encoded_preds, dim=0).detach().cpu().numpy()
+        
+        kde = kde.fit(encoded_preds)
+
+        pickle.dump(kde, open("./kde_models/kde.pkl", "wb"))
+            
+
+    else:
+        paths = sorted(Path(checkpoint_dir).iterdir(), key=os.path.getmtime)
+
+        encoder = Encoder(input_channels=3, latent_dim=latent_dim)
+        decoder = Decoder(output_channels=3, latent_dim=latent_dim)
+        autoenc = AutoEncoder.load_from_checkpoint(paths[-1], encoder=encoder, decoder=decoder)
+
+        data = pd.read_csv("./data/dataframe.csv")
+        normal_data = data.loc[data["label"] == "normal"]
+        anomaly_data = data.loc[data["label"] == "anomaly"]
+
+        train_data, val_data = train_test_split(normal_data, test_size=test_size, random_state=42, shuffle=True)
+
+        # Define transformations for train and validation test
+        transforms = A.Compose([
+            A.Normalize(mean=.5, std=.5, always_apply=True)
+        ])
+
+        train_ds = AnimalDataset(train_data, resize=(224, 224), transformations=transforms)
+        val_ds = AnimalDataset(val_data, resize=(224, 224), transformations=transforms)
+        anomaly_ds = AnimalDataset(anomaly_data, resize=(224, 224), transformations=transforms)
+
+        train_dl = td.DataLoader(train_ds, batch_size=train_batch_size, shuffle=True, num_workers=4)
+        val_dl = td.DataLoader(val_ds, batch_size=val_batch_size, shuffle=False, num_workers=4)
+        anomaly_dl = td.DataLoader(anomaly_ds, batch_size=val_batch_size, shuffle=False, num_workers=4)
+
+        rprint("[bold #f2c13a] Generating latent representation of training data")
+        train_representation, train_reconstruction_error = get_latent_reps_and_error(train_dl, autoenc)
+        train_kdes = calc_density(train_representation, "./kde_models/kde.pkl")
+
+        mean_train_kde, std_train_kde = np.mean(train_kdes), np.std(train_kdes)
+        mean_train_rec_error, std_train_rec_error = np.mean(train_reconstruction_error), np.std(train_reconstruction_error)
+
+
+        rprint("[bold #f23a3a] Generating latent representation of anomaly data")
+        anomaly_representation, anomaly_reconstruction_error = get_latent_reps_and_error(anomaly_dl, autoenc)
+        anomaly_kdes = calc_density(anomaly_representation, "./kde_models/kde.pkl")
+
+        anomaly_mean_kde, anomaly_std_kde = np.mean(anomaly_kdes), np.std(anomaly_kdes)
+        anomaly_mean_rec_error, anomaly_std_rec_error = np.mean(anomaly_reconstruction_error), np.std(anomaly_reconstruction_error)
+
+
+        info_data = pd.DataFrame({
+            "type": ["normal", "anomaly"],
+            "mean_reconstruction_error": [mean_train_rec_error, anomaly_mean_rec_error],
+            "std_reconstruction_error": [std_train_rec_error, anomaly_std_rec_error],
+            "mean_kdes": [mean_train_kde, anomaly_mean_kde],
+            "std_kdes": [std_train_kde, anomaly_std_kde]
+        })
+
+        info_data.to_csv("./data/info.csv", index=False)
+        print(info_data)
+
 
 
 
