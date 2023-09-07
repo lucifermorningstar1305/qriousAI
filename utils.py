@@ -34,10 +34,14 @@ def print_table(data: Any, title: Optional[str]="Data", top_n: Optional[int]=5):
         else:
             table.add_column(col, style=colors[random.randint(0, len(colors)-1)])
 
-    top_data = data.head(top_n)
+    if data.shape[0] < top_n:
+        top_n = data.shape[0]
 
+    top_data = data.head(top_n)
     for i in range(top_n):
-        table.add_row(*top_data.iloc[i].tolist())
+        rec = top_data.iloc[i].tolist()
+        rec = list(map(lambda x: str(rec), rec))
+        table.add_row(*rec)
     
     console = Console()
     console.print(table)
@@ -90,7 +94,6 @@ def get_latent_reps_and_error(data: td.DataLoader, model: pl.LightningModule) ->
             pred = model(x)
             error = F.mse_loss(pred, x, reduction="none").sum(dim=[1, 2, 3])
             errors.append(error)
-            
         representations = torch.cat(representations, dim=0)
         errors = torch.cat(errors, dim=0)
     
@@ -102,17 +105,13 @@ def get_latent_reps_and_error(data: td.DataLoader, model: pl.LightningModule) ->
 def calc_density(representations: np.ndarray, kde_path: str) -> np.ndarray:
     """ Function to calculate the Kernel density """
 
-    densities = list()
-
     kde_model = pickle.load(open(kde_path, "rb"))
+    if len(representations.shape) > 1:
+        density = kde_model.score_samples(representations)
+    else:
+        density = kde_model.score_samples(representations.reshape(1, -1))
 
-    for i in track(range(representations.shape[0])):
-        rep = representations[i].reshape(1, -1)
-
-        density = kde_model.score_samples(rep)[0]
-        densities.append(density)
-
-    return np.asarray(densities)
+    return np.asarray(density)
 
 
 def process_img(img_path: str) -> torch.Tensor:
@@ -137,12 +136,13 @@ def isAnomaly(img_tensor: torch.Tensor, model: pl.LightningModule, kde_model: Ca
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    print(img_tensor.max(), img_tensor.min())
 
     with torch.no_grad():
         model.eval()
 
         latent_representation = model.encoder(img_tensor.to(device)).detach().cpu().numpy()
-        density = kde_model.score_samples(latent_representation)[0]
+        density = kde_model.score(latent_representation.reshape(1, -1))
 
         reconstructed_img = model(img_tensor.to(device))
         loss = F.mse_loss(reconstructed_img, img_tensor.to(device), reduction="none").sum(dim=[1, 2, 3])

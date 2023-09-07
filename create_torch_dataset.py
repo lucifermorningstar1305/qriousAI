@@ -21,7 +21,7 @@ class AnimalDataset(td.Dataset):
     def __getitem__(self, idx: int):
 
         img_path = self.data.iloc[idx]["img_path"]
-        img = Image.open(img_path)
+        img = Image.open(img_path).convert("RGB")
 
         if self.resize is not None:
             img = img.resize((self.resize[1], self.resize[0]), resample=Image.Resampling.BILINEAR)

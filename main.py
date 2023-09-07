@@ -196,36 +196,32 @@ if __name__ == "__main__":
         val_ds = AnimalDataset(val_data, resize=(224, 224), transformations=transforms)
         anomaly_ds = AnimalDataset(anomaly_data, resize=(224, 224), transformations=transforms)
 
-        train_dl = td.DataLoader(train_ds, batch_size=train_batch_size, shuffle=True, num_workers=4)
-        val_dl = td.DataLoader(val_ds, batch_size=val_batch_size, shuffle=False, num_workers=4)
-        anomaly_dl = td.DataLoader(anomaly_ds, batch_size=val_batch_size, shuffle=False, num_workers=4)
+        train_dl = td.DataLoader(train_ds, batch_size=1, shuffle=False, num_workers=4)
+        val_dl = td.DataLoader(val_ds, batch_size=1, shuffle=False, num_workers=4)
+        anomaly_dl = td.DataLoader(anomaly_ds, batch_size=1, shuffle=False, num_workers=4)
 
         rprint("[bold #f2c13a] Generating latent representation of training data")
         train_representation, train_reconstruction_error = get_latent_reps_and_error(train_dl, autoenc)
         train_kdes = calc_density(train_representation, "./kde_models/kde.pkl")
-
-        mean_train_kde, std_train_kde = np.mean(train_kdes), np.std(train_kdes)
-        mean_train_rec_error, std_train_rec_error = np.mean(train_reconstruction_error), np.std(train_reconstruction_error)
 
 
         rprint("[bold #f23a3a] Generating latent representation of anomaly data")
         anomaly_representation, anomaly_reconstruction_error = get_latent_reps_and_error(anomaly_dl, autoenc)
         anomaly_kdes = calc_density(anomaly_representation, "./kde_models/kde.pkl")
 
-        anomaly_mean_kde, anomaly_std_kde = np.mean(anomaly_kdes), np.std(anomaly_kdes)
-        anomaly_mean_rec_error, anomaly_std_rec_error = np.mean(anomaly_reconstruction_error), np.std(anomaly_reconstruction_error)
-
-
         info_data = pd.DataFrame({
-            "type": ["normal", "anomaly"],
-            "mean_reconstruction_error": [mean_train_rec_error, anomaly_mean_rec_error],
-            "std_reconstruction_error": [std_train_rec_error, anomaly_std_rec_error],
-            "mean_kdes": [mean_train_kde, anomaly_mean_kde],
-            "std_kdes": [std_train_kde, anomaly_std_kde]
+            "normal_recon_error": train_reconstruction_error.tolist(),
+            "normal_kde": train_kdes.tolist()
+        })
+
+        anomaly_info_data = pd.DataFrame({
+            "anomaly_recon_error": anomaly_reconstruction_error.tolist(),
+            "anomaly_kde": anomaly_kdes.tolist()
         })
 
         info_data.to_csv("./data/info.csv", index=False)
-        print(info_data)
+        anomaly_info_data.to_csv("./data/anomaly_info.csv", index=False)
+        rprint(f"[bold #3af277] Saved all info data")
 
 
 
