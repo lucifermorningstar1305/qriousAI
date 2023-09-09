@@ -39,8 +39,7 @@ def print_table(data: Any, title: Optional[str]="Data", top_n: Optional[int]=5):
 
     top_data = data.head(top_n)
     for i in range(top_n):
-        rec = top_data.iloc[i].tolist()
-        rec = list(map(lambda x: str(rec), rec))
+        rec = top_data.iloc[i].map(lambda x: str(x)).tolist()
         table.add_row(*rec)
     
     console = Console()
@@ -92,7 +91,7 @@ def get_latent_reps_and_error(data: td.DataLoader, model: pl.LightningModule) ->
             representations.append(latent_rep)
 
             pred = model(x)
-            error = F.mse_loss(pred, x, reduction="none").sum(dim=[1, 2, 3])
+            error = F.mse_loss(pred, x, reduction="none").sum(dim=[1, 2, 3]) / 3
             errors.append(error)
         representations = torch.cat(representations, dim=0)
         errors = torch.cat(errors, dim=0)
@@ -131,24 +130,24 @@ def process_img(img_path: str) -> torch.Tensor:
     return torch.tensor(transformed_img, dtype=torch.float32)
 
 
-def isAnomaly(img_tensor: torch.Tensor, model: pl.LightningModule, kde_model: Callable, error_threshold: float, kde_threshold: float) -> bool:
+def isAnomaly(img_tensor: torch.Tensor, model: pl.LightningModule, error_threshold: float) -> bool:
     """ Function to check if an image is an anomalous image or not """
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    print(img_tensor.max(), img_tensor.min())
+    # print(img_tensor.max(), img_tensor.min())
 
     with torch.no_grad():
         model.eval()
 
-        latent_representation = model.encoder(img_tensor.to(device)).detach().cpu().numpy()
-        density = kde_model.score(latent_representation.reshape(1, -1))
+        # latent_representation = model.encoder(img_tensor.to(device)).detach().cpu().numpy()
+        # density = kde_model.score(latent_representation.reshape(1, -1))
 
         reconstructed_img = model(img_tensor.to(device))
-        loss = F.mse_loss(reconstructed_img, img_tensor.to(device), reduction="none").sum(dim=[1, 2, 3])
+        loss = F.mse_loss(reconstructed_img, img_tensor.to(device), reduction="none").sum(dim=[1, 2, 3]) / 3
 
-    print(loss.item(), density, error_threshold, kde_threshold)
-    if loss.item() > error_threshold or density < kde_threshold:
+    # print(loss.item(), error_threshold)
+    if loss.item() > error_threshold:
         return True
     
     else:

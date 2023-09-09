@@ -5,7 +5,7 @@ import pickle
 import argparse
 
 from autoencoder import Encoder, Decoder, AutoEncoder
-from utils import process_img, isAnomaly
+from utility.utils import process_img, isAnomaly
 
 if __name__ == "__main__":
 

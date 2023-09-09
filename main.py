@@ -23,7 +23,7 @@ from pathlib import Path
 
 from autoencoder import Encoder, Decoder, AutoEncoder
 from create_torch_dataset import AnimalDataset
-from utils import print_table, get_val_images, GenerateCallback, get_latent_reps_and_error, calc_density
+from utility.utils import print_table, get_val_images, GenerateCallback, get_latent_reps_and_error, calc_density
 
 if __name__ == "__main__":
     
@@ -73,6 +73,7 @@ if __name__ == "__main__":
                 for i in track(range(n_files)):
                     img_file = files[i]
                     label = root.split("/")[-1]
+                    split = root.split("/")[-2]
 
                     if label in ["cat", "dog"]:
                         data["label"].append("normal")
@@ -80,6 +81,7 @@ if __name__ == "__main__":
                         data["label"].append("anomaly")
                     
                     data["img_path"].append(os.path.join(root, img_file))
+                    data["split"].append(split)
 
             
             data = pd.DataFrame(data).sample(frac=1, random_state=32)
@@ -99,7 +101,7 @@ if __name__ == "__main__":
         rprint(f"[bold #f23a3a] Size of the Anomaly data: [bold #f23ad3]{anomaly_data.shape[0]}")
 
         # Create a train/test partition using the normal data
-        df_train, df_val = train_test_split(normal_data, test_size=test_size, shuffle=True, random_state=42)
+        df_train, df_val = normal_data.loc[data["split"] == "train"], normal_data.loc[data["split"] == "val"]
         rprint(f"[bold #f2b83a] Size of the training data: [bold #813af2]{df_train.shape[0]}")
         rprint(f"[bold #3af26b] Size of the validation data: [bold #f23abe]{df_val.shape[0]}")
 
@@ -185,7 +187,8 @@ if __name__ == "__main__":
         normal_data = data.loc[data["label"] == "normal"]
         anomaly_data = data.loc[data["label"] == "anomaly"]
 
-        train_data, val_data = train_test_split(normal_data, test_size=test_size, random_state=42, shuffle=True)
+        # train_data, val_data = train_test_split(normal_data, test_size=test_size, random_state=42, shuffle=True)
+        train_data, val_data = normal_data.loc[normal_data["split"] == "train"], normal_data.loc[normal_data["split"]=="val"]
 
         # Define transformations for train and validation test
         transforms = A.Compose([
