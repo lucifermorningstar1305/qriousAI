@@ -43,7 +43,7 @@ class TransformersEncoderBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
 
-        attn_x = self.multi_attn(x, x, x)
+        attn_x, _ = self.multi_attn(x, x, x)
         add_norm1 = self.layer_norm1(x + attn_x)
 
         add_norm1 = F.dropout(add_norm1, p=self.dropout_rate,

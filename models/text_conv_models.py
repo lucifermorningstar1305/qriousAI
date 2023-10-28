@@ -96,9 +96,7 @@ class LightWeightConvBlock(nn.Module):
 
         x = self.proj(x)
         x = F.glu(x, dim=-1)  # Converts the (B, T, 2*C) -> (B, T, C)
-        print(x.shape)
         x = self.lconv(x)
-        print(x.shape)
         x = self.fc(x)
 
         return x
