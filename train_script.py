@@ -57,7 +57,7 @@ if __name__ == "__main__":
     csv_data = pd.read_csv(data_path)
 
     train_csv_data = csv_data.loc[csv_data["data_use_for"] == "train"]
-    val_csv_data = csv_data.loc[csv_data["data_use_for"] == "val"]
+    val_csv_data = csv_data.loc[csv_data["data_use_for"] == "validation"]
 
     config = dict()
     with open(config_path, "r") as fp:
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     trainer = pl.Trainer(accelerator="cuda",
                          strategy="ddp" if torch.cuda.device_count() > 1 else "auto",
                          devices=torch.cuda.device_count(),
-                         precision=16,
+                         precision="16-mixed",
                          max_epochs=max_epochs,
                          callbacks=[early_stop, model_chkpt, rich_prog_bar],
                          logger=logger)
