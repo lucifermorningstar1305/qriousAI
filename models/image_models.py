@@ -34,7 +34,7 @@ class DepthwiseSeperableConv(nn.Module):
 
 
 class MobileNetv1(nn.Module):
-    def __init__(self, in_channels: int, alpha: Optional[float] = 1.):
+    def __init__(self, in_channels: int, out_dim: int, alpha: Optional[float] = 1.):
 
         super().__init__()
 
@@ -54,32 +54,33 @@ class MobileNetv1(nn.Module):
 
         self.model.add_module("first_layer_act", nn.ReLU(inplace=True))
 
-        self.add_module("depthwise_sep_conv_1", DepthwiseSeperableConv(
+        self.model.add_module("depthwise_sep_conv_1", DepthwiseSeperableConv(
             in_channels=new_dw, out_channels=new_dw*2, kernel_size=3, stride=1, padding=1))
-        self.add_module("depthwise_sep_conv_2", DepthwiseSeperableConv(
+        self.model.add_module("depthwise_sep_conv_2", DepthwiseSeperableConv(
             in_channels=new_dw*2, out_channels=new_dw*4, kernel_size=3, stride=2, padding=1))
-        self.add_module("depthwise_sep_conv_3", DepthwiseSeperableConv(
+        self.model.add_module("depthwise_sep_conv_3", DepthwiseSeperableConv(
             in_channels=new_dw*4, out_channels=new_dw*4, kernel_size=3, stride=1, padding=1))
-        self.add_module("depthwise_sep_conv_4", DepthwiseSeperableConv(
+        self.model.add_module("depthwise_sep_conv_4", DepthwiseSeperableConv(
             in_channels=new_dw*4, out_channels=new_dw*8, kernel_size=3, stride=2, padding=1))
-        self.add_module("depthwise_sep_conv_5", DepthwiseSeperableConv(
+        self.model.add_module("depthwise_sep_conv_5", DepthwiseSeperableConv(
             in_channels=new_dw*8, out_channels=new_dw*8, kernel_size=3, stride=1, padding=1))
-        self.add_module("depthwise_sep_conv_6", DepthwiseSeperableConv(
+        self.model.add_module("depthwise_sep_conv_6", DepthwiseSeperableConv(
             in_channels=new_dw*8, out_channels=new_dw*16, kernel_size=3, stride=2, padding=1))
 
         for i in range(5):
-            self.add_module(f"depthwise_sep_conv_{i+7}", DepthwiseSeperableConv(
+            self.model.add_module(f"depthwise_sep_conv_{i+7}", DepthwiseSeperableConv(
                 in_channels=new_dw*16, out_channels=new_dw*16, kernel_size=3, stride=1, padding=1))
 
-        self.add_module(f"depthwise_sep_conv_12", DepthwiseSeperableConv(
+        self.model.add_module(f"depthwise_sep_conv_12", DepthwiseSeperableConv(
             in_channels=new_dw*16, out_channels=new_dw*32, kernel_size=3, stride=2, padding=1))
-        self.add_module(f"depthwise_sep_conv_13", DepthwiseSeperableConv(
+        self.model.add_module(f"depthwise_sep_conv_13", DepthwiseSeperableConv(
             in_channels=new_dw*32, out_channels=new_dw*32, kernel_size=3, stride=2, padding=1))
 
-        self.add_module(f"avg_pool", nn.AdaptiveAvgPool2d(output_size=(1, 1)))
-        self.add_module(f"flatten", nn.Flatten())
-        self.add_module(f"fc", nn.Linear(
-            in_features=1024, out_features=512))
+        self.model.add_module(
+            f"avg_pool", nn.AdaptiveAvgPool2d(output_size=(1, 1)))
+        self.model.add_module(f"flatten", nn.Flatten())
+        self.model.add_module(f"fc", nn.Linear(
+            in_features=1024, out_features=out_dim))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)

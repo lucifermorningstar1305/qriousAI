@@ -19,3 +19,12 @@ text_model:
   n_blocks: 4
   output_dim: 768
   dropout_rate: 0.3
+
+image_model:
+  alpha: 1.0
+  output_dim: 512
+
+clip_model:
+  proj_dim: 512
+  tau: 0.7
+  dropout_rate: 0.3

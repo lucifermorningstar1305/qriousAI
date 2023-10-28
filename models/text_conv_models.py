@@ -3,7 +3,7 @@
 Date: 10-15-2023
 
 """
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ class LightConv(nn.Module):
 
     """ Implementation of LightConv from: https://github.com/facebookresearch/fairseq/blob/main/fairseq/modules/lightweight_convolution.py """
 
-    def __init__(self, input_dim: int, num_heads: int, kernel_size: int, padding: int, weight_softmax: bool, bias: bool, dropout_rate: float):
+    def __init__(self, input_dim: int, num_heads: int, kernel_size: int, padding: Any, weight_softmax: bool, bias: bool, dropout_rate: float):
 
         super().__init__()
 
@@ -79,7 +79,7 @@ class LightConv(nn.Module):
 
 
 class LightWeightConvBlock(nn.Module):
-    def __init__(self, input_dim: int, num_heads: Optional[int] = 1, kernel_size: Optional[int] = 1, padding: Optional[int] = 0,
+    def __init__(self, input_dim: int, num_heads: Optional[int] = 1, kernel_size: Optional[int] = 1, padding: Optional[str | int] = "same",
                  weight_softmax: Optional[bool] = True,
                  bias: Optional[bool] = False, dropout_rate: Optional[float] = .2):
 

@@ -58,6 +58,11 @@ class LiteTransformerEncoder(nn.Module):
         self.out_layer = nn.Linear(
             in_features=config["embedding_dim"], out_features=config["output_dim"])
 
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.normal_(self.embedding.weight, std=.02)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         An implementation of the LiteTransformerBlock Forward function
