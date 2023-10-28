@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 class CrossEntropyWithLogits(nn.Module):
     def __init__(self, reduction: Optional[str] = "none"):
-
+        super().__init__()
         assert reduction in [
             "none", "mean", "sum"], f"Expected reduction to be either sum/mean/none. Found {reduction}"
 
