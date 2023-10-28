@@ -34,7 +34,7 @@ class TextVisualDataset(td.Dataset):
         img = self.transformations(img)
 
         tok_res = self.text_tokenizer(
-            text, max_length=self.cfg["text_model"]["max_seq_length"])
+            text, max_length=self.cfg["text_model"]["max_seq_length"], padding="max_length", truncation=True, return_tensors="pt")
 
         return {
             "img": img,
