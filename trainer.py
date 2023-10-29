@@ -42,7 +42,7 @@ class LitMobileCLiP(pl.LightningModule):
 
     def _common_steps(self, batch: torch.Tensor, batch_idx: torch.Tensor) -> torch.Tensor:
 
-        img, txt = batch["img"], batch["txt"]["input_ids"]
+        img, txt = batch["img"], batch["txt"]["input_ids"].squeeze()
 
         logits_per_img, logits_per_txt, targets = self(img, txt)
 
