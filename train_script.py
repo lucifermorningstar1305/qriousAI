@@ -22,6 +22,10 @@ from transformers import CLIPTokenizerFast
 from trainer import LitMobileCLiP
 from utility.datasets import TextVisualDataset
 
+torch.cuda.empty_cache()
+torch.manual_seed(42)
+pl.seed_everything(42)
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(

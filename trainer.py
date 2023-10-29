@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 import torch.nn.functional as F
+import itertools
 
 from models.mobile_clip import MobileCLiP
 from losses.cross_entropy import CrossEntropyWithLogits
@@ -72,8 +73,13 @@ class LitMobileCLiP(pl.LightningModule):
         }
 
     def configure_optimizers(self) -> Any:
+
+        params = [{"params": self.clip_model.img_model.parameters(), "lr":self.cfg["image_model"]["lr"]},
+                  {"params": self.clip_model.text_model.parameters(), "lr": self.cfg["text_model"]["lr"]},
+                  {"params": itertools.chain(self.clip_model.img_projection.parameters(), self.clip_model.text_projection.parameters()), 
+                   "lr":self.cfg["projection_head_lr"], "weight_decay": self.cfg["projection_head_weight_decay"]}]
         optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"])
+            params, weight_decay=0.)
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer, self.cfg["T_0"], eta_min=self.cfg["min_lr"], verbose=True)
