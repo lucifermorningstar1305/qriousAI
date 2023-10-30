@@ -165,6 +165,8 @@ if __name__ == "__main__":
         name=f"{config['image_model']['model_name']}_litetransformer",
     )
 
+    logger.watch(model, log="gradients", log_freq=50)
+
     trainer = pl.Trainer(
         accelerator="cuda",
         strategy="ddp" if torch.cuda.device_count() > 1 else "auto",
@@ -173,6 +175,7 @@ if __name__ == "__main__":
         max_epochs=max_epochs,
         callbacks=[early_stop, model_chkpt, rich_prog_bar],
         logger=logger,
+        gradient_clip_val=2000.0,
     )
 
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl)

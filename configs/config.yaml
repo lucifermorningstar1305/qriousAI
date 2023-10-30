@@ -11,18 +11,18 @@ text_model:
   embedding_dim: 256
 
   transformer_encoder:
-    num_heads: 4
+    num_heads: 8
     dropout_rate: 0.3
 
   lconv:
-    num_heads: 4
+    num_heads: 8
     kernel_size: [3, 5, 7, 31, 31, 31]
     padding: ["same", "same", "same", "same", "same", "same"]
     weight_softmax: [True, True, True, True, True, True]
     bias: [False, False, False, False, False, False]
     dropout_rate: [0.3, 0.3, 0.3, 0.3, 0.3, 0.3]
 
-  n_blocks: 4
+  n_blocks: 6
   output_dim: 768
   dropout_rate: 0.3
   lr: 0.00001

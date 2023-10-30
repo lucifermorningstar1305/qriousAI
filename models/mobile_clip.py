@@ -3,7 +3,7 @@
 Date: 10-29-2023
 
 """
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 import numpy as np
 import torch
@@ -76,9 +76,14 @@ class MobileCLiP(nn.Module):
             torch.ones([]) * np.log(1 / config["clip_model"]["tau"])
         )
 
-    def forward(self, image: torch.Tensor, text: torch.Tensor) -> Tuple:
+    def forward(
+        self,
+        image: torch.Tensor,
+        text: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+    ) -> Tuple:
         img_proj = self.encode_image(image)
-        txt_proj = self.encode_text(text)
+        txt_proj = self.encode_text(text, attn_mask)
 
         logit_scale = self.tau.exp()
         logits_per_img = logit_scale * img_proj @ txt_proj.t()
@@ -99,8 +104,8 @@ class MobileCLiP(nn.Module):
 
         return img_proj
 
-    def encode_text(self, x: torch.Tensor) -> torch.Tensor:
-        txt_out = self.text_model(x)[:, -1, :]
+    def encode_text(self, x: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
+        txt_out = self.text_model(x, attn_mask)[:, -1, :]
         txt_proj = self.text_projection(txt_out)
 
         return txt_proj

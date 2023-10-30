@@ -83,7 +83,9 @@ class LiteTransformerEncoder(nn.Module):
     def reset_parameters(self):
         nn.init.normal_(self.embedding.weight, std=0.02)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         """
         An implementation of the LiteTransformerBlock Forward function
 
@@ -101,8 +103,8 @@ class LiteTransformerEncoder(nn.Module):
             x_left = x[:, :, : self.embed_dim // 2]
             x_right = x[:, :, self.embed_dim // 2 :]
 
-            x_left_out = block["trans_encoder"](self.pos_encoding(x_left))
-            x_right_out = block["lconv_block"](x_right)
+            x_left_out = block["trans_encoder"](self.pos_encoding(x_left), attn_mask)
+            x_right_out = block["lconv_block"](x_right, attn_mask)
 
             concat_x = torch.concat([x_left_out, x_right_out], dim=-1)
 

@@ -25,8 +25,15 @@ class LitMobileCLiP(pl.LightningModule):
         self.criterion_per_img = CrossEntropyWithLogits()
         self.criterion_per_txt = CrossEntropyWithLogits()
 
-    def forward(self, image: torch.Tensor, text: torch.Tensor) -> Tuple:
-        logits_per_img, logits_per_txt, targets = self.clip_model(image, text)
+    def forward(
+        self,
+        image: torch.Tensor,
+        text: torch.Tensor,
+        attn_mask: Optional[torch.Tensor] = None,
+    ) -> Tuple:
+        logits_per_img, logits_per_txt, targets = self.clip_model(
+            image, text, attn_mask
+        )
 
         return logits_per_img, logits_per_txt, targets
 
@@ -43,9 +50,13 @@ class LitMobileCLiP(pl.LightningModule):
     def _common_steps(
         self, batch: torch.Tensor, batch_idx: torch.Tensor
     ) -> torch.Tensor:
-        img, txt = batch["img"], batch["txt"]["input_ids"].squeeze()
+        img, txt, attn_mask = (
+            batch["img"],
+            batch["txt"]["input_ids"].squeeze(),
+            batch["txt"]["attention_mask"].squeeze(),
+        )
 
-        logits_per_img, logits_per_txt, targets = self(img, txt)
+        logits_per_img, logits_per_txt, targets = self(img, txt, attn_mask.float())
 
         loss = self._compute_loss(logits_per_img, logits_per_txt, targets)
 
@@ -110,5 +121,7 @@ class LitMobileCLiP(pl.LightningModule):
     def encode_image(self, img_tensor: torch.Tensor) -> torch.Tensor:
         return self.clip_model.encode_image(img_tensor)
 
-    def encode_text(self, text_tensor: torch.Tensor) -> torch.Tensor:
-        return self.clip_model.encode_text(text_tensor)
+    def encode_text(
+        self, text_tensor: torch.Tensor, attn_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        return self.clip_model.encode_text(text_tensor, attn_mask=attn_mask)

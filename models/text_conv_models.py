@@ -113,8 +113,11 @@ class LightWeightConvBlock(nn.Module):
 
         self.fc = nn.Linear(in_features=input_dim, out_features=input_dim)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
         x = self.proj(x)
+        attn_mask = attn_mask.unsqueeze(2)
+        if attn_mask is not None:
+            x.masked_fill_(attn_mask == 0, 0)
         x = F.glu(x, dim=-1)  # Converts the (B, T, 2*C) -> (B, T, C)
         x = self.lconv(x)
         x = self.fc(x)

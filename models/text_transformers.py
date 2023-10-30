@@ -36,7 +36,7 @@ class TransformersEncoderBlock(nn.Module):
         super().__init__()
 
         self.multi_attn = nn.MultiheadAttention(
-            embed_dim=input_dim, num_heads=num_heads
+            embed_dim=input_dim, num_heads=num_heads, batch_first=True
         )
 
         self.ffn = PositionWiseFFN(embed_dim=input_dim)
@@ -44,8 +44,8 @@ class TransformersEncoderBlock(nn.Module):
         self.layer_norm2 = nn.LayerNorm(input_dim)
         self.dropout = nn.Dropout(p=dropout_rate)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        attn_x, _ = self.multi_attn(x, x, x)
+    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
+        attn_x, _ = self.multi_attn(x, x, x, key_padding_mask=attn_mask)
         add_norm1 = self.layer_norm1(x + attn_x)
 
         add_norm1 = self.dropout(add_norm1)
