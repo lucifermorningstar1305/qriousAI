@@ -22,6 +22,7 @@ from sklearn.metrics import accuracy_score
 from trainer import LitMobileCLiP
 from transformers import CLIPTokenizerFast
 from utility.datasets import ZeroShotTextVisualDataset
+from PIL import Image
 
 from rich.progress import (
     Progress,
@@ -71,11 +72,12 @@ def get_text_tensors(text_captions: List, model: Callable) -> torch.Tensor:
 
     with prog_bar as p:
         n_captions = len(text_captions)
-        with torch.no_grad():
-            model.eval()
-            for i in p.track(range(n_captions), description="Generating text captions"):
-                txt = text_captions[i].to("cuda:0")
-                text_tensors.append(F.normalize(model.encode_text(txt), p=2, dim=-1))
+
+        for i in p.track(range(n_captions), description="Getting text tensors"):
+            txt = text_captions[i].to("cuda:0")
+            text_tensors.append(
+                F.normalize(model.encode_text(txt), p=2, dim=-1).detach().cpu()
+            )
 
     concat_text_tensor = torch.cat(text_tensors, dim=0)
     return concat_text_tensor
@@ -98,22 +100,28 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
     pred_labels = list()
 
     with prog_bar as p:
-        with torch.no_grad():
-            model.eval()
-            for batch in p.track(dataloader, description="Evaluating Model"):
-                img = batch["img"]
-                label = batch["label"]
+        model.eval()
+        for batch in p.track(dataloader, description="Evaluating Model"):
+            img = batch["img"]
+            label = batch["label"]
 
-                img_encoding = model.encode_image(img.to("cuda:0"))
-                similarities = text_tensors @ F.normalize(img_encoding, p=2, dim=-1).t()
-                pred_label = torch.argmax(similarities)
-                # print(pred_label, label)
+            img_encoding = model.encode_image(img.to("cuda:0"))
+            similarities = (
+                text_tensors.to("cuda:0") @ F.normalize(img_encoding, p=2, dim=-1).t()
+            )
+            pred_label = torch.argmax(similarities, dim=0)
 
-                true_labels.append(label.detach().numpy())
-                pred_labels.append(pred_label.detach().cpu().numpy())
+            true_labels.append(label.detach().numpy())
+            pred_labels.append(pred_label.detach().cpu().numpy())
 
     true_labels = np.asarray(true_labels)
     pred_labels = np.asarray(pred_labels)
+
+    unique_preds, counts = np.unique(pred_labels, return_counts=True)
+    unique_preds = unique_preds.reshape(-1, 1)
+    counts = counts.reshape(-1, 1)
+    print(f"frequency of each predicted classes by the model")
+    print(np.hstack((unique_preds, counts)))
 
     return accuracy_score(true_labels, pred_labels)
 
@@ -165,17 +173,12 @@ if __name__ == "__main__":
 
     df = pd.read_csv(csv_path)
     # print(df.loc[df["label"].isna()])
+    # print(torch.load(model_checkpoint)["state_dict"].keys())
+    model = LitMobileCLiP.load_from_checkpoint(model_checkpoint, config=cfg)
+    model.freeze()
+    # clip_model = model.clip_model
 
     text_tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
-    transformations = torchvision.transforms.Compose(
-        [
-            torchvision.transforms.Resize((224, 224)),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(
-                (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
-            ),
-        ]
-    )
 
     integer_label_map = {k: idx for idx, k in enumerate(df["text"].unique())}
     print(integer_label_map)
@@ -189,18 +192,28 @@ if __name__ == "__main__":
         for txt in unique_captions
     ]
 
+    txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
+
+    transformations = torchvision.transforms.Compose(
+        [
+            torchvision.transforms.Resize((224, 224)),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(
+                (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+            ),
+        ]
+    )
+
+    # img_tensors = get_img_tensors(df["image_path"].tolist(), transformations)
+
     test_ds = ZeroShotTextVisualDataset(
         data=df,
         transformations=transformations,
         config=cfg,
     )
 
-    test_dl = td.DataLoader(test_ds, batch_size=1, shuffle=False, num_workers=4)
+    test_dl = td.DataLoader(test_ds, batch_size=1, shuffle=False, num_workers=1)
 
-    model = LitMobileCLiP.load_from_checkpoint(model_checkpoint, config=cfg)
-    clip_model = model.clip_model
-
-    txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=clip_model)
-    acc = evaluate(test_dl, clip_model, txt_tensors)
+    acc = evaluate(test_dl, model, txt_tensors)
 
     print(f"Zero-shot accuracy: {acc*100:.2f}%")

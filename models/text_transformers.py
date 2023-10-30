@@ -13,14 +13,12 @@ import math
 
 class PositionWiseFFN(nn.Module):
     def __init__(self, embed_dim: int):
-
         super().__init__()
 
-        self.ffn1 = nn.Linear(in_features=embed_dim, out_features=2*embed_dim)
-        self.ffn2 = nn.Linear(in_features=2*embed_dim, out_features=embed_dim)
+        self.ffn1 = nn.Linear(in_features=embed_dim, out_features=2 * embed_dim)
+        self.ffn2 = nn.Linear(in_features=2 * embed_dim, out_features=embed_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-
         temp = self.ffn1(x)
         temp = F.relu(temp, inplace=True)
         out = self.ffn2(temp)
@@ -29,25 +27,28 @@ class PositionWiseFFN(nn.Module):
 
 
 class TransformersEncoderBlock(nn.Module):
-    def __init__(self, input_dim: int, num_heads: Optional[int] = 1, dropout_rate: Optional[float] = .2):
-
+    def __init__(
+        self,
+        input_dim: int,
+        num_heads: Optional[int] = 1,
+        dropout_rate: Optional[float] = 0.2,
+    ):
         super().__init__()
 
         self.multi_attn = nn.MultiheadAttention(
-            embed_dim=input_dim, num_heads=num_heads)
+            embed_dim=input_dim, num_heads=num_heads
+        )
 
         self.ffn = PositionWiseFFN(embed_dim=input_dim)
         self.layer_norm1 = nn.LayerNorm(input_dim)
         self.layer_norm2 = nn.LayerNorm(input_dim)
-        self.dropout_rate = dropout_rate
+        self.dropout = nn.Dropout(p=dropout_rate)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-
         attn_x, _ = self.multi_attn(x, x, x)
         add_norm1 = self.layer_norm1(x + attn_x)
 
-        add_norm1 = F.dropout(add_norm1, p=self.dropout_rate,
-                              training=True, inplace=False)
+        add_norm1 = self.dropout(add_norm1)
 
         ffn_out = self.ffn(add_norm1)
         add_norm2 = self.layer_norm2(add_norm1 + ffn_out)
@@ -57,7 +58,6 @@ class TransformersEncoderBlock(nn.Module):
 
 class PositionalEncoding(nn.Module):
     def __init__(self, embed_dim: int, max_seq_length: int):
-
         super().__init__()
 
         self.embed_dim = embed_dim
@@ -66,19 +66,18 @@ class PositionalEncoding(nn.Module):
 
         for pos in range(max_seq_length):
             for i in range(0, embed_dim, 2):
-                pe[pos, i] = math.sin(pos/math.pow(10_000, (2*i/embed_dim)))
-                pe[pos, i+1] = math.cos(pos /
-                                        math.pow(10_000, (2*(i+1)/embed_dim)))
+                pe[pos, i] = math.sin(pos / math.pow(10_000, (2 * i / embed_dim)))
+                pe[pos, i + 1] = math.cos(
+                    pos / math.pow(10_000, (2 * (i + 1) / embed_dim))
+                )
 
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-
         x = x * math.sqrt(self.embed_dim)
         seq_len = x.size(1)
 
-        x += torch.autograd.Variable(self.pe[:,
-                                     :seq_len, :], requires_grad=False)
+        x += torch.autograd.Variable(self.pe[:, :seq_len, :], requires_grad=False)
 
         return x

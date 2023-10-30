@@ -10,33 +10,30 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.image_models import MobileNetv1
+from models.image_models import ImageEncoder
 from models.text_models import LiteTransformerEncoder
 
 
 class ProjectionHead(nn.Module):
     def __init__(self, embedding_dim: int, projection_dim: int, dropout_rate: float):
-
         super().__init__()
 
-        self.dropout_rate = dropout_rate
-
         self.proj_layer = nn.Linear(
-            in_features=embedding_dim, out_features=projection_dim)
+            in_features=embedding_dim, out_features=projection_dim
+        )
 
         self.gelu = nn.GELU()
 
-        self.fc = nn.Linear(in_features=projection_dim,
-                            out_features=projection_dim)
+        self.fc = nn.Linear(in_features=projection_dim, out_features=projection_dim)
 
         self.layer_norm = nn.LayerNorm(projection_dim)
+        self.dropout = nn.Dropout(p=dropout_rate)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-
         proj_out = self.proj_layer(x)
         out = self.gelu(proj_out)
         out = self.fc(out)
-        out = F.dropout(out, p=self.dropout_rate)
+        out = self.dropout(out)
         out = out + proj_out
         out = self.layer_norm(out)
 
@@ -48,22 +45,38 @@ class MobileCLiP(nn.Module):
         super().__init__()
 
         self.config = config
-        self.img_model = MobileNetv1(
-            in_channels=3, out_dim=config["image_model"]["output_dim"], alpha=config["image_model"]["alpha"])
+        # self.img_model = MobileNetv1(
+        #     in_channels=3,
+        #     out_dim=config["image_model"]["output_dim"],
+        #     alpha=config["image_model"]["alpha"],
+        # )
+
+        self.img_model = ImageEncoder(
+            model_name=config["image_model"]["model_name"],
+            in_channels=3,
+            out_dim=config["image_model"]["output_dim"],
+            alpha=config["image_model"]["alpha"],
+        )
 
         self.text_model = LiteTransformerEncoder(config["text_model"])
 
-        self.img_projection = ProjectionHead(embedding_dim=config["image_model"]["output_dim"],
-                                             projection_dim=config["clip_model"]["proj_dim"], dropout_rate=config["clip_model"]["dropout_rate"])
+        self.img_projection = ProjectionHead(
+            embedding_dim=config["image_model"]["output_dim"],
+            projection_dim=config["clip_model"]["proj_dim"],
+            dropout_rate=config["clip_model"]["dropout_rate"],
+        )
 
-        self.text_projection = ProjectionHead(embedding_dim=config["text_model"]["output_dim"],
-                                              projection_dim=config["clip_model"]["proj_dim"], dropout_rate=config["clip_model"]["dropout_rate"])
+        self.text_projection = ProjectionHead(
+            embedding_dim=config["text_model"]["output_dim"],
+            projection_dim=config["clip_model"]["proj_dim"],
+            dropout_rate=config["clip_model"]["dropout_rate"],
+        )
 
-        self.tau = nn.Parameter(torch.ones(
-            []) * np.log(1 / config["clip_model"]["tau"]))
+        self.tau = nn.Parameter(
+            torch.ones([]) * np.log(1 / config["clip_model"]["tau"])
+        )
 
     def forward(self, image: torch.Tensor, text: torch.Tensor) -> Tuple:
-
         img_proj = self.encode_image(image)
         txt_proj = self.encode_text(text)
 
@@ -75,19 +88,18 @@ class MobileCLiP(nn.Module):
         txt_similarities = logit_scale * txt_proj @ txt_proj.t()
 
         targets = F.softmax(
-            logit_scale * (img_similarities + txt_similarities) / 2, dim=-1)
+            logit_scale * (img_similarities + txt_similarities) / 2, dim=-1
+        )
 
         return logits_per_img, logits_per_txt, targets
 
     def encode_image(self, x: torch.Tensor) -> torch.Tensor:
-
         img_out = self.img_model(x)
         img_proj = self.img_projection(img_out)
 
         return img_proj
 
     def encode_text(self, x: torch.Tensor) -> torch.Tensor:
-
         txt_out = self.text_model(x)[:, -1, :]
         txt_proj = self.text_projection(txt_out)
 

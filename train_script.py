@@ -160,7 +160,10 @@ if __name__ == "__main__":
     )
     rich_prog_bar = RichProgressBar()
 
-    logger = WandbLogger(project="MobileCLIP", name="mobilenetv1_litetransformer")
+    logger = WandbLogger(
+        project="MobileCLIP",
+        name=f"{config['image_model']['model_name']}_litetransformer",
+    )
 
     trainer = pl.Trainer(
         accelerator="cuda",

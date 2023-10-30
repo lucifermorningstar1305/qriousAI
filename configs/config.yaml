@@ -28,6 +28,7 @@ text_model:
   lr: 0.00001
 
 image_model:
+  model_name: "mobilenetv3_large"
   alpha: 1.0
   output_dim: 512
   lr: 0.0001
