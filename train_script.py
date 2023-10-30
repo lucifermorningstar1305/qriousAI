@@ -106,7 +106,6 @@ if __name__ == "__main__":
         [
             torchvision.transforms.Resize((224, 224)),
             torchvision.transforms.RandomResizedCrop((224, 224)),
-            torchvision.transforms.RandomAdjustSharpness(),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomRotation((0, 180)),
             torchvision.transforms.RandomAutocontrast(),
