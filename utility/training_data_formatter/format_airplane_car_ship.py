@@ -50,6 +50,9 @@ if __name__ == "__main__":
             file = files[i]
             label = root.split("/")[-1]
 
+            if file.split(".")[-1] not in ["jpg", "png", "jpeg"]:
+                continue
+
             data["image_path"].append(os.path.join(root, file))
             data["label"].append(label)
 

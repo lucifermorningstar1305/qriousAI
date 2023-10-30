@@ -59,6 +59,8 @@ if __name__ == "__main__":
             if ".json" in file:
                 labels_file = os.path.join(root, file)
             else:
+                if file.split(".")[-1] not in ["jpg", "png", "jpeg"]:
+                    continue
                 sci_label = root.split("/")[-1]
                 img_file = os.path.join(root, file)
 

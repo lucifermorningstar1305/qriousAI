@@ -50,12 +50,13 @@ if __name__ == "__main__":
         for i in track(range(n_files)):
             file = files[i]
             label = root.split("/")[-1]
-
+            if file.split(".")[-1] not in ["jpg", "png", "jpeg"]:
+                continue
             data["image_path"].append(os.path.join(root, file))
             data["label"].append(label)
 
     data = pd.DataFrame(data)
-
+    print(data.head())
     random_labels = [
         "The sports highlighted in this image is {}",
         "{} is a beautiful sport",
