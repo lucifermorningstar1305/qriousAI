@@ -176,6 +176,7 @@ if __name__ == "__main__":
         callbacks=[early_stop, model_chkpt, rich_prog_bar],
         logger=logger,
         gradient_clip_val=2000.0,
+        gradient_clip_algorithm="value",
     )
 
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl)

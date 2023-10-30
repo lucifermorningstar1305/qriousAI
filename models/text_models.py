@@ -55,7 +55,7 @@ class LiteTransformerEncoder(nn.Module):
                                 in_features=config["embedding_dim"],
                                 out_features=config["embedding_dim"] * 4,
                             ),
-                            nn.ReLU(inplace=True),
+                            nn.ReLU(),
                             nn.Linear(
                                 in_features=config["embedding_dim"] * 4,
                                 out_features=config["embedding_dim"],
@@ -68,7 +68,7 @@ class LiteTransformerEncoder(nn.Module):
         )
 
         self.pos_encoding = PositionalEncoding(
-            embed_dim=config["embedding_dim"] // 2,
+            embed_dim=config["embedding_dim"],
             max_seq_length=config["max_seq_length"],
         )
 
@@ -100,17 +100,18 @@ class LiteTransformerEncoder(nn.Module):
         x = self.embedding(x)
 
         for block in self.n_blocks:
+            x = self.pos_encoding(x)
             x_left = x[:, :, : self.embed_dim // 2]
             x_right = x[:, :, self.embed_dim // 2 :]
 
-            x_left_out = block["trans_encoder"](self.pos_encoding(x_left), attn_mask)
+            x_left_out = block["trans_encoder"](x_left, attn_mask)
             x_right_out = block["lconv_block"](x_right, attn_mask)
 
             concat_x = torch.concat([x_left_out, x_right_out], dim=-1)
-
+            concat_x = self.dropout(concat_x)
             add_norm1 = block["layer_norm1"](x + concat_x)
-            add_norm1 = self.dropout(add_norm1)
             ffn_out = block["ffn"](add_norm1)
+            ffn_out = self.dropout(ffn_out)
             add_norm2 = block["layer_norm2"](add_norm1 + ffn_out)
 
             x = add_norm2

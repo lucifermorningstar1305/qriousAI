@@ -117,7 +117,7 @@ class LightWeightConvBlock(nn.Module):
         x = self.proj(x)
         attn_mask = attn_mask.unsqueeze(2)
         if attn_mask is not None:
-            x.masked_fill_(attn_mask == 0, 0)
+            x = x.masked_fill(attn_mask == 0, 0)
         x = F.glu(x, dim=-1)  # Converts the (B, T, 2*C) -> (B, T, C)
         x = self.lconv(x)
         x = self.fc(x)

@@ -52,7 +52,7 @@ def text_process(txt: str, tokenizer: Callable, max_length: int) -> torch.Tensor
         return_tensors="pt",
     )
 
-    return tok_outputs["input_ids"]
+    return tok_outputs
 
 
 def get_text_tensors(text_captions: List, model: Callable) -> torch.Tensor:
@@ -74,9 +74,12 @@ def get_text_tensors(text_captions: List, model: Callable) -> torch.Tensor:
         n_captions = len(text_captions)
 
         for i in p.track(range(n_captions), description="Getting text tensors"):
-            txt = text_captions[i].to("cuda:0")
+            txt = text_captions[i]["input_ids"].to("cuda:0")
+            attn_mask = text_captions[i]["attention_mask"].float().to("cuda:0")
             text_tensors.append(
-                F.normalize(model.encode_text(txt), p=2, dim=-1).detach().cpu()
+                F.normalize(model.encode_text(txt, attn_mask), p=2, dim=-1)
+                .detach()
+                .cpu()
             )
 
     concat_text_tensor = torch.cat(text_tensors, dim=0)

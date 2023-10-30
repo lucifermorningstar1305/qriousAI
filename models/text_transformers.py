@@ -20,7 +20,7 @@ class PositionWiseFFN(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         temp = self.ffn1(x)
-        temp = F.relu(temp, inplace=True)
+        temp = F.relu(temp)
         out = self.ffn2(temp)
 
         return out
@@ -45,12 +45,14 @@ class TransformersEncoderBlock(nn.Module):
         self.dropout = nn.Dropout(p=dropout_rate)
 
     def forward(self, x: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
-        attn_x, _ = self.multi_attn(x, x, x, key_padding_mask=attn_mask)
+        attn_x, _ = self.multi_attn(
+            x, x, x, key_padding_mask=attn_mask, need_weights=False
+        )
+        attn_x = self.dropout(attn_x)
         add_norm1 = self.layer_norm1(x + attn_x)
 
-        add_norm1 = self.dropout(add_norm1)
-
         ffn_out = self.ffn(add_norm1)
+        ffn_out = self.dropout(ffn_out)
         add_norm2 = self.layer_norm2(add_norm1 + ffn_out)
 
         return add_norm2
