@@ -56,6 +56,7 @@ class LiteTransformerEncoder(nn.Module):
                                 out_features=config["embedding_dim"] * 4,
                             ),
                             nn.ReLU(),
+                            nn.Dropout(p=dropout_rate),
                             nn.Linear(
                                 in_features=config["embedding_dim"] * 4,
                                 out_features=config["embedding_dim"],
@@ -70,6 +71,7 @@ class LiteTransformerEncoder(nn.Module):
         self.pos_encoding = PositionalEncoding(
             embed_dim=config["embedding_dim"],
             max_seq_length=config["max_seq_length"],
+            dropout_rate=config["pos_encoding_dropout_rate"],
         )
 
         self.out_layer = nn.Linear(
@@ -77,6 +79,9 @@ class LiteTransformerEncoder(nn.Module):
         )
 
         self.dropout = nn.Dropout(p=dropout_rate)
+        self.last_layer_norm = (
+            nn.LayerNorm(config["embedding_dim"]) if config["last_layer_norm"] else None
+        )
 
         self.reset_parameters()
 
@@ -98,9 +103,8 @@ class LiteTransformerEncoder(nn.Module):
         a tensor of shape (B x T x C)
         """
         x = self.embedding(x)
-
+        x = self.pos_encoding(x)
         for block in self.n_blocks:
-            x = self.pos_encoding(x)
             x_left = x[:, :, : self.embed_dim // 2]
             x_right = x[:, :, self.embed_dim // 2 :]
 
@@ -117,5 +121,7 @@ class LiteTransformerEncoder(nn.Module):
             x = add_norm2
 
         x = self.out_layer(x)
+        if self.last_layer_norm is not None:
+            x = self.last_layer_norm(x)
 
         return x

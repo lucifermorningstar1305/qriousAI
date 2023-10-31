@@ -41,7 +41,7 @@ class LitMobileCLiP(pl.LightningModule):
         self, yhat_img: torch.Tensor, yhat_txt: torch.Tensor, targets: torch.Tensor
     ) -> torch.Tensor:
         loss_per_img = self.criterion_per_img(yhat_img, targets)
-        loss_per_txt = self.criterion_per_txt(yhat_txt, targets)
+        loss_per_txt = self.criterion_per_txt(yhat_txt, targets.t())
 
         loss = (loss_per_img + loss_per_txt) / 2
 

@@ -39,47 +39,49 @@ class TransformersEncoderBlock(nn.Module):
             embed_dim=input_dim, num_heads=num_heads, batch_first=True
         )
 
-        self.ffn = PositionWiseFFN(embed_dim=input_dim)
-        self.layer_norm1 = nn.LayerNorm(input_dim)
-        self.layer_norm2 = nn.LayerNorm(input_dim)
-        self.dropout = nn.Dropout(p=dropout_rate)
+        # self.ffn = PositionWiseFFN(embed_dim=input_dim)
+        # self.layer_norm1 = nn.LayerNorm(input_dim)
+        # self.layer_norm2 = nn.LayerNorm(input_dim)
+        # self.dropout = nn.Dropout(p=dropout_rate)
 
     def forward(self, x: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
         attn_x, _ = self.multi_attn(
             x, x, x, key_padding_mask=attn_mask, need_weights=False
         )
-        attn_x = self.dropout(attn_x)
-        add_norm1 = self.layer_norm1(x + attn_x)
 
-        ffn_out = self.ffn(add_norm1)
-        ffn_out = self.dropout(ffn_out)
-        add_norm2 = self.layer_norm2(add_norm1 + ffn_out)
+        return attn_x
+        # attn_x = self.dropout(attn_x)
+        # add_norm1 = self.layer_norm1(x + attn_x)
 
-        return add_norm2
+        # ffn_out = self.ffn(add_norm1)
+        # ffn_out = self.dropout(ffn_out)
+        # add_norm2 = self.layer_norm2(add_norm1 + ffn_out)
+
+        # return add_norm2
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, embed_dim: int, max_seq_length: int):
+    def __init__(self, embed_dim: int, max_seq_length: int, dropout_rate: float = 0.1):
         super().__init__()
 
         self.embed_dim = embed_dim
+        self.dropout = nn.Dropout(p=dropout_rate)
 
-        pe = torch.zeros(max_seq_length, embed_dim)
-
-        for pos in range(max_seq_length):
-            for i in range(0, embed_dim, 2):
-                pe[pos, i] = math.sin(pos / math.pow(10_000, (2 * i / embed_dim)))
-                pe[pos, i + 1] = math.cos(
-                    pos / math.pow(10_000, (2 * (i + 1) / embed_dim))
-                )
-
-        pe = pe.unsqueeze(0)
+        position = torch.arange(max_seq_length).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, embed_dim, 2) * (-math.log(10000.0) / embed_dim)
+        )
+        pe = torch.zeros(max_seq_length, 1, embed_dim)
+        pe[:, 0, 0::2] = torch.sin(position * div_term)
+        pe[:, 0, 1::2] = torch.cos(position * div_term)
         self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x * math.sqrt(self.embed_dim)
         seq_len = x.size(1)
-
-        x += torch.autograd.Variable(self.pe[:, :seq_len, :], requires_grad=False)
+        x = x.transpose(0, 1)  # (B, T, C) -> (T, B, C)
+        x = x + self.pe[:seq_len]
+        x = x.transpose(0, 1)  # (T, B, C) -> (B, T, C)
+        x = self.dropout(x)
 
         return x

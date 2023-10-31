@@ -3,7 +3,7 @@
 Date: 10-29-2023
 
 """
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, List
 
 import numpy as np
 import torch
@@ -72,9 +72,11 @@ class MobileCLiP(nn.Module):
             dropout_rate=config["clip_model"]["dropout_rate"],
         )
 
-        self.tau = nn.Parameter(
-            torch.ones([]) * np.log(1 / config["clip_model"]["tau"])
-        )
+        # self.tau = nn.Parameter(
+        #     torch.ones([]) * np.log(1 / config["clip_model"]["tau"])
+        # )
+
+        self.tau = config["clip_model"]["tau"]
 
     def forward(
         self,
@@ -85,8 +87,10 @@ class MobileCLiP(nn.Module):
         img_proj = self.encode_image(image)
         txt_proj = self.encode_text(text, attn_mask)
 
-        logit_scale = self.tau.exp()
-        logits_per_img = logit_scale * img_proj @ txt_proj.t()
+        # logit_scale = self.tau.exp()
+        logit_scale = self.tau
+        # logits_per_img = logit_scale * img_proj @ txt_proj.t()
+        logits_per_img = 1 / logit_scale * (img_proj @ txt_proj.t())
         logits_per_txt = logits_per_img.t()
 
         img_similarities = logit_scale * img_proj @ img_proj.t()
@@ -98,6 +102,16 @@ class MobileCLiP(nn.Module):
 
         return logits_per_img, logits_per_txt, targets
 
+    def get_eos_embedding_pos(self, attn_mask: torch.Tensor) -> List:
+        attn_pos = torch.where(attn_mask == 1)[1]
+        diffs = torch.diff(attn_pos)
+        reset_indices = torch.where(diffs < 0)[0]
+        max_elements = attn_pos[reset_indices].tolist()
+        if reset_indices[-1] != len(attn_pos) - 1:
+            max_elements.append(attn_pos[-1].item())
+
+        return max_elements
+
     def encode_image(self, x: torch.Tensor) -> torch.Tensor:
         img_out = self.img_model(x)
         img_proj = self.img_projection(img_out)
@@ -105,7 +119,10 @@ class MobileCLiP(nn.Module):
         return img_proj
 
     def encode_text(self, x: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
-        txt_out = self.text_model(x, attn_mask)[:, -1, :]
+        eos_embedding_loc = self.get_eos_embedding_pos(attn_mask)
+        txt_out = self.text_model(x, attn_mask)[
+            torch.arange(x.size(0)), eos_embedding_loc, :
+        ]
         txt_proj = self.text_projection(txt_out)
 
         return txt_proj
