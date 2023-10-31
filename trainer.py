@@ -40,12 +40,15 @@ class LitMobileCLiP(pl.LightningModule):
     def _compute_loss(
         self, yhat_img: torch.Tensor, yhat_txt: torch.Tensor, targets: torch.Tensor
     ) -> torch.Tensor:
-        loss_per_img = self.criterion_per_img(yhat_img, targets)
-        loss_per_txt = self.criterion_per_txt(yhat_txt, targets.t())
+        # loss_per_img = self.criterion_per_img(yhat_img, targets)
+        # loss_per_txt = self.criterion_per_txt(yhat_txt, targets.t())
+
+        loss_per_img = F.cross_entropy(yhat_img, targets)
+        loss_per_txt = F.cross_entropy(yhat_txt, targets)
 
         loss = (loss_per_img + loss_per_txt) / 2
 
-        return loss.mean()
+        return loss
 
     def _common_steps(
         self, batch: torch.Tensor, batch_idx: torch.Tensor
@@ -92,25 +95,27 @@ class LitMobileCLiP(pl.LightningModule):
         return {"val_loss": loss}
 
     def configure_optimizers(self) -> Any:
-        params = [
-            {
-                "params": self.clip_model.img_model.parameters(),
-                "lr": self.cfg["image_model"]["lr"],
-            },
-            {
-                "params": self.clip_model.text_model.parameters(),
-                "lr": self.cfg["text_model"]["lr"],
-            },
-            {
-                "params": itertools.chain(
-                    self.clip_model.img_projection.parameters(),
-                    self.clip_model.text_projection.parameters(),
-                ),
-                "lr": self.cfg["projection_head_lr"],
-                "weight_decay": self.cfg["projection_head_weight_decay"],
-            },
-        ]
-        optimizer = torch.optim.Adam(params, weight_decay=0.0)
+        # params = [
+        #     {
+        #         "params": self.clip_model.img_model.parameters(),
+        #         "lr": self.cfg["image_model"]["lr"],
+        #     },
+        #     {
+        #         "params": self.clip_model.text_model.parameters(),
+        #         "lr": self.cfg["text_model"]["lr"],
+        #     },
+        #     {
+        #         "params": itertools.chain(
+        #             self.clip_model.img_projection.parameters(),
+        #             self.clip_model.text_projection.parameters(),
+        #         ),
+        #         "lr": self.cfg["projection_head_lr"],
+        #         "weight_decay": self.cfg["projection_head_weight_decay"],
+        #     },
+        # ]
+        optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"]
+        )
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer, self.cfg["T_0"], eta_min=self.cfg["min_lr"], verbose=True

@@ -72,11 +72,9 @@ class MobileCLiP(nn.Module):
             dropout_rate=config["clip_model"]["dropout_rate"],
         )
 
-        # self.tau = nn.Parameter(
-        #     torch.ones([]) * np.log(1 / config["clip_model"]["tau"])
-        # )
-
-        self.tau = config["clip_model"]["tau"]
+        self.tau = nn.Parameter(
+            torch.ones([]) * np.log(1 / config["clip_model"]["tau"])
+        )
 
     def forward(
         self,
@@ -87,18 +85,13 @@ class MobileCLiP(nn.Module):
         img_proj = self.encode_image(image)
         txt_proj = self.encode_text(text, attn_mask)
 
-        # logit_scale = self.tau.exp()
-        logit_scale = self.tau
-        # logits_per_img = logit_scale * img_proj @ txt_proj.t()
-        logits_per_img = 1 / logit_scale * (img_proj @ txt_proj.t())
+        img_proj = F.normalize(img_proj, p=2, dim=1)
+        txt_proj = F.normalize(txt_proj, p=2, dim=1)
+
+        logit_scale = self.tau.exp()
+        logits_per_img = logit_scale * img_proj @ txt_proj.t()
         logits_per_txt = logits_per_img.t()
-
-        img_similarities = logit_scale * img_proj @ img_proj.t()
-        txt_similarities = logit_scale * txt_proj @ txt_proj.t()
-
-        targets = F.softmax(
-            logit_scale * (img_similarities + txt_similarities) / 2, dim=-1
-        )
+        targets = torch.arange(image.size(0), device=logits_per_img.device)
 
         return logits_per_img, logits_per_txt, targets
 
@@ -107,7 +100,7 @@ class MobileCLiP(nn.Module):
         diffs = torch.diff(attn_pos)
         reset_indices = torch.where(diffs < 0)[0]
         max_elements = attn_pos[reset_indices].tolist()
-        if reset_indices[-1] != len(attn_pos) - 1:
+        if len(reset_indices) == 0 or reset_indices[-1] != len(attn_pos) - 1:
             max_elements.append(attn_pos[-1].item())
 
         return max_elements
