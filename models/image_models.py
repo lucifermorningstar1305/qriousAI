@@ -172,7 +172,7 @@ class MobileNetv1(nn.Module):
 
         self.model.add_module(f"avg_pool", nn.AdaptiveAvgPool2d(output_size=(1, 1)))
         self.model.add_module(f"flatten", nn.Flatten())
-        self.model.add_module(f"fc", nn.Linear(in_features=1024, out_features=out_dim))
+        # self.model.add_module(f"fc", nn.Linear(in_features=1024, out_features=out_dim))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
@@ -186,9 +186,7 @@ class MobileNetv2(nn.Module):
             torchvision.models.MobileNet_V2_Weights.DEFAULT
         )
         in_features = self.mobile_model.classifier[-1].in_features
-        self.mobile_model.classifier[-1] = nn.Linear(
-            in_features=in_features, out_features=out_dim
-        )
+        self.mobile_model.classifier[-1] = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mobile_model(x)
@@ -202,25 +200,21 @@ class MobileNetv3Small(nn.Module):
             torchvision.models.MobileNet_V3_Small_Weights.DEFAULT
         )
         in_features = self.mobile_model.classifier[-1].in_features
-        self.mobile_model.classifier[-1] = nn.Linear(
-            in_features=in_features, out_features=out_dim
-        )
+        self.mobile_model.classifier[-1] = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mobile_model(x)
 
 
 class MobileNetv3Large(nn.Module):
-    def __init__(self, in_channels: int, out_dim: int, alpha: Optional[int] = 1.0):
+    def __init__(self, in_channels: int, alpha: Optional[int] = 1.0):
         super().__init__()
 
         self.mobile_model = torchvision.models.mobilenet_v3_large(
             torchvision.models.MobileNet_V3_Large_Weights.DEFAULT
         )
         in_features = self.mobile_model.classifier[-1].in_features
-        self.mobile_model.classifier[-1] = nn.Linear(
-            in_features=in_features, out_features=out_dim
-        )
+        self.mobile_model.classifier[-1] = nn.Identity()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mobile_model(x)
@@ -231,7 +225,6 @@ class ImageEncoder(nn.Module):
         self,
         model_name: str,
         in_channels: int,
-        out_dim: int,
         alpha: Optional[int] = 1.0,
     ):
         super().__init__()
@@ -245,23 +238,15 @@ class ImageEncoder(nn.Module):
         ], f"Expected model_name to be one of the following: mobilenetv1, mobilenetv2, mobilenetv3_small, mobilenetv3_large. Found {model_name}"
 
         if model_name == "mobilenetv1":
-            self.model = MobileNetv1(
-                in_channels=in_channels, out_dim=out_dim, alpha=alpha
-            )
+            self.model = MobileNetv1(in_channels=in_channels, alpha=alpha)
 
         elif model_name == "mobilenetv2":
-            self.model = MobileNetv2(
-                in_channels=in_channels, out_dim=out_dim, alpha=alpha
-            )
+            self.model = MobileNetv2(in_channels=in_channels, alpha=alpha)
 
         elif model_name == "mobilenetv3_small":
-            self.model = MobileNetv3Small(
-                in_channels=in_channels, out_dim=out_dim, alpha=alpha
-            )
+            self.model = MobileNetv3Small(in_channels=in_channels, alpha=alpha)
         elif model_name == "mobilenetv3_large":
-            self.model = MobileNetv3Large(
-                in_channels=in_channels, out_dim=out_dim, alpha=alpha
-            )
+            self.model = MobileNetv3Large(in_channels=in_channels, alpha=alpha)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)

@@ -11,6 +11,7 @@ import torch
 import torch.utils.data as td
 import pytorch_lightning as pl
 import torchvision
+import albumentations as alb
 import os
 import sys
 import yaml
@@ -21,6 +22,12 @@ from transformers import CLIPTokenizerFast
 
 from trainer import LitMobileCLiP
 from utility.datasets import TextVisualDataset
+from utility.transform_data import (
+    HorizontalFlip,
+    IMAGENET_COLOR_MEAN,
+    IMAGENET_COLOR_STD,
+    CenterSquareCrop,
+)
 
 torch.cuda.empty_cache()
 torch.manual_seed(42)
@@ -101,31 +108,55 @@ if __name__ == "__main__":
             print(exc)
 
     tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
+    tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+    tokenizer.padding_side = "left"
 
-    train_transforms = torchvision.transforms.Compose(
+    train_transforms = alb.Compose(
         [
-            torchvision.transforms.Resize((224, 224)),
-            torchvision.transforms.RandomResizedCrop((224, 224)),
-            torchvision.transforms.RandomHorizontalFlip(),
-            torchvision.transforms.RandomRotation((0, 180)),
-            torchvision.transforms.RandomAutocontrast(),
-            torchvision.transforms.RandomVerticalFlip(),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(
-                (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+            alb.SmallestMaxSize(256, always_apply=True),
+            CenterSquareCrop(224),
+            alb.ColorJitter(),
+            HorizontalFlip(),
+            alb.Resize(224, 224, always_apply=True),
+            alb.Normalize(
+                mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, always_apply=True
             ),
         ]
     )
 
-    val_transforms = torchvision.transforms.Compose(
+    val_transforms = alb.Compose(
         [
-            torchvision.transforms.Resize((224, 224)),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(
-                (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+            alb.Resize(224, 224, always_apply=True),
+            alb.Normalize(
+                mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, always_apply=True
             ),
         ]
     )
+
+    # train_transforms = torchvision.transforms.Compose(
+    #     [
+    #         torchvision.transforms.Resize((224, 224)),
+    #         torchvision.transforms.RandomResizedCrop((224, 224)),
+    #         torchvision.transforms.RandomHorizontalFlip(),
+    #         torchvision.transforms.RandomRotation((0, 180)),
+    #         torchvision.transforms.RandomAutocontrast(),
+    #         torchvision.transforms.RandomVerticalFlip(),
+    #         torchvision.transforms.ToTensor(),
+    #         torchvision.transforms.Normalize(
+    #             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+    #         ),
+    #     ]
+    # )
+
+    # val_transforms = torchvision.transforms.Compose(
+    #     [
+    #         torchvision.transforms.Resize((224, 224)),
+    #         torchvision.transforms.ToTensor(),
+    #         torchvision.transforms.Normalize(
+    #             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+    #         ),
+    #     ]
+    # )
 
     train_ds = TextVisualDataset(
         data=train_csv_data,

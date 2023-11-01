@@ -12,7 +12,10 @@ import torch.nn.functional as F
 import itertools
 
 from models.mobile_clip import MobileCLiP
-from losses.cross_entropy import CrossEntropyWithLogits
+from models.clip_lite_models import PriorDiscriminator
+
+# from losses.cross_entropy import CrossEntropyWithLogits
+from losses.jsd_info_max_loss import JSDInfoMaxLoss
 
 
 class LitMobileCLiP(pl.LightningModule):
@@ -22,46 +25,91 @@ class LitMobileCLiP(pl.LightningModule):
         self.cfg = config
 
         self.clip_model = MobileCLiP(config)
-        self.criterion_per_img = CrossEntropyWithLogits()
-        self.criterion_per_txt = CrossEntropyWithLogits()
+        self.criterion = JSDInfoMaxLoss()
+
+        if self.cfg["image_model"]["prior"]:
+            self.img_prior_d = PriorDiscriminator(
+                inp_dim=self.cfg["image_model"]["output_dim"]
+            )
+
+        if self.cfg["text_model"]["prior"]:
+            self.txt_prior_d = PriorDiscriminator(
+                inp_dim=self.cfg["text_model"]["output_dim"]
+            )
 
     def forward(
         self,
         image: torch.Tensor,
         text: torch.Tensor,
         attn_mask: Optional[torch.Tensor] = None,
+        neg_image: Optional[torch.Tensor] = None,
+        neg_text: Optional[torch.Tensor] = None,
+        neg_attn_mask: Optional[torch.Tensor] = None,
     ) -> Tuple:
-        logits_per_img, logits_per_txt, targets = self.clip_model(
-            image, text, attn_mask
+        model_out = self.clip_model(
+            image, text, attn_mask, neg_image, neg_text, neg_attn_mask
         )
 
-        return logits_per_img, logits_per_txt, targets
+        return model_out
 
-    def _compute_loss(
-        self, yhat_img: torch.Tensor, yhat_txt: torch.Tensor, targets: torch.Tensor
-    ) -> torch.Tensor:
+    def _compute_loss(self, model_out: Dict) -> torch.Tensor:
         # loss_per_img = self.criterion_per_img(yhat_img, targets)
         # loss_per_txt = self.criterion_per_txt(yhat_txt, targets.t())
 
-        loss_per_img = F.cross_entropy(yhat_img, targets)
-        loss_per_txt = F.cross_entropy(yhat_txt, targets)
+        IMG_PRIOR = None
+        TXT_PRIOR = None
 
-        loss = (loss_per_img + loss_per_txt) / 2
+        if self.cfg["image_model"]["prior"]:
+            img_prior = torch.rand_like(
+                model_out["img_feats"], device=model_out["img_feats"].device
+            )
+            term_a = torch.log(self.img_prior_d(img_prior)).mean()
+            term_b = torch.log(1 - self.img_prior_d(model_out["img_feats"])).mean()
+            IMG_PRIOR = -term_a - term_b
 
+        if self.cfg["text_model"]["prior"]:
+            txt_prior = torch.rand_like(
+                model_out["txt_feats"], device=model_out["txt_feats"].device
+            )
+            term_a = torch.log(self.txt_prior_d(txt_prior)).mean()
+            term_b = torch.log(1 - self.txt_prior_d(model_out["txt_feats"])).mean()
+            TXT_PRIOR = -term_a - term_b
+
+        loss = self.criterion(
+            model_out["Ej"], model_out["Em"], img_prior=IMG_PRIOR, txt_prior=TXT_PRIOR
+        )
         return loss
 
     def _common_steps(
         self, batch: torch.Tensor, batch_idx: torch.Tensor
     ) -> torch.Tensor:
-        img, txt, attn_mask = (
+        # print(batch)
+        img, txt, neg_img, neg_txt = (
             batch["img"],
-            batch["txt"]["input_ids"].squeeze(),
-            batch["txt"]["attention_mask"].squeeze(),
+            batch["txt"],
+            batch["neg_img"],
+            batch["neg_txt"],
         )
 
-        logits_per_img, logits_per_txt, targets = self(img, txt, attn_mask.float())
+        txt_input_ids, txt_attn_mask = (
+            txt["input_ids"].squeeze(),
+            txt["attention_mask"].squeeze().float(),
+        )
+        neg_txt_input_ids, neg_txt_attn_mask = (
+            neg_txt["input_ids"].squeeze(),
+            neg_txt["attention_mask"].squeeze().float(),
+        )
 
-        loss = self._compute_loss(logits_per_img, logits_per_txt, targets)
+        out = self(
+            img,
+            txt_input_ids,
+            txt_attn_mask,
+            neg_image=neg_img,
+            neg_text=neg_txt_input_ids,
+            neg_attn_mask=neg_txt_attn_mask,
+        )
+
+        loss = self._compute_loss(out)
 
         return loss
 

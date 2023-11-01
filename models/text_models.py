@@ -23,6 +23,7 @@ class LiteTransformerEncoder(nn.Module):
         self.embedding = nn.Embedding(
             num_embeddings=config["num_embeddings"],
             embedding_dim=config["embedding_dim"],
+            padding_idx=config["padding_idx"],
         )
 
         self.n_blocks = nn.ModuleList(

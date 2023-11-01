@@ -6,7 +6,8 @@ T_0: 10000
 train_batch_size: 16
 val_batch_size: 32
 text_model:
-  num_embeddings: 49408
+  num_embeddings: 49409
+  padding_idx: 49408
   max_seq_length: 80
   embedding_dim: 256
 
@@ -27,13 +28,15 @@ text_model:
   dropout_rate: 0.3
   last_layer_norm: False
   pos_encoding_dropout_rate: 0.1
+  prior: False
 
 image_model:
   model_name: "mobilenetv3_large"
   alpha: 1.0
-  output_dim: 512
+  output_dim: 1280
+  prior: True
 
 clip_model:
-  proj_dim: 512
+  proj_dim: 2048
   tau: 0.07
   dropout_rate: 0.3
