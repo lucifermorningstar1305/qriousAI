@@ -48,8 +48,10 @@ class TextVisualDataset(td.Dataset):
         rec = self.data.iloc[idx]
         img_path = rec["image_path"]
         text = rec["text"]
-
-        neg_sample = self.data.loc[self.data.index != idx].sample(n=1, random_state=32)
+        img_id = rec["image_id"]
+        neg_sample = self.data.loc[self.data["image_id"] != img_id].sample(
+            n=1, random_state=32
+        )
         neg_img_path = neg_sample["image_path"].values[0]
         neg_text = neg_sample["text"].values[0]
 
