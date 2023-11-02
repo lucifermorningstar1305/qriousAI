@@ -9,7 +9,7 @@ text_model:
   num_embeddings: 49409
   padding_idx: 49408
   max_seq_length: 80
-  embedding_dim: 512
+  embedding_dim: 256
 
   transformer_encoder:
     num_heads: 8
@@ -24,11 +24,11 @@ text_model:
     dropout_rate: 0.3
 
   n_blocks: 6
-  output_dim: 768
+  output_dim: 512
   dropout_rate: 0.3
   last_layer_norm: False
   pos_encoding_dropout_rate: 0.1
-  ffn_embedding_dim: 4096
+  ffn_embedding_dim: 1024
   prior: False
 
 image_model:
