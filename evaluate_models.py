@@ -38,6 +38,7 @@ from rich.progress import (
     TextColumn,
     BarColumn,
 )
+from pprint import pprint
 
 import torch.multiprocessing
 
@@ -231,6 +232,7 @@ if __name__ == "__main__":
         "ship": 8,
         "truck": 9,
     }
+    pprint(integer_label_map)
     print(df["label"].unique())
     df["label"] = df["label"].str.lower().map(integer_label_map)
     print(df.head())

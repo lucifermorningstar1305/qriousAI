@@ -87,7 +87,12 @@ class LiteTransformerEncoder(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.normal_(self.embedding.weight, std=0.02)
+        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
+        for module in self.n_blocks:
+            for name, m in module["ffn"].named_modules():
+                if "Linear" in name:
+                    m.bias.data.zero_()
+                    m.weight.data.uniform_(-0.1, 0.1)
 
     def forward(
         self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None
