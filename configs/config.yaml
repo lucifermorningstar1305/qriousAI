@@ -6,7 +6,7 @@ T_0: 500
 train_batch_size: 32
 val_batch_size: 64
 clip_grad_val: 20.0
-text_model_name: "convbert"
+text_model_name: "lite_transformer"
 text_model:
   num_embeddings: 49409
   padding_idx: 49408

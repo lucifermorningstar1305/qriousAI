@@ -30,8 +30,8 @@ from utility.transform_data import (
 )
 
 torch.cuda.empty_cache()
-torch.manual_seed(42)
-pl.seed_everything(42)
+# torch.manual_seed(42)
+# pl.seed_everything(42)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
