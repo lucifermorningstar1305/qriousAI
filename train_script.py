@@ -210,7 +210,7 @@ if __name__ == "__main__":
         max_epochs=max_epochs,
         callbacks=[early_stop, model_chkpt, rich_prog_bar],
         logger=logger,
-        gradient_clip_val=2000.0,
+        gradient_clip_val=config["clip_grad_val"],
         gradient_clip_algorithm="value",
     )
 

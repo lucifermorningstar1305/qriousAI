@@ -1,15 +1,18 @@
 ---
-lr: 0.00001
+lr: 0.001
 min_lr: 0.000001
 weight_decay: 0.2
 T_0: 10000
 train_batch_size: 16
 val_batch_size: 32
+clip_grad_val: 20
 text_model:
   num_embeddings: 49409
   padding_idx: 49408
   max_seq_length: 80
   embedding_dim: 256
+  lr: 0.001
+  weight_decay: 0.0001
 
   transformer_encoder:
     num_heads: 8
@@ -36,6 +39,8 @@ image_model:
   alpha: 1.0
   output_dim: 1280
   prior: True
+  lr: 0.02
+  weight_decay: 0.0001
 
 clip_model:
   proj_dim: 2048

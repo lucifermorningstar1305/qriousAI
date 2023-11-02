@@ -27,6 +27,7 @@ class LitMobileCLiP(pl.LightningModule):
         self.clip_model = MobileCLiP(config)
         self.criterion = JSDInfoMaxLoss()
 
+        self.img_prior_d, self.txt_prior_d = None, None
         if self.cfg["image_model"]["prior"]:
             self.img_prior_d = PriorDiscriminator(
                 inp_dim=self.cfg["image_model"]["output_dim"]
@@ -142,28 +143,41 @@ class LitMobileCLiP(pl.LightningModule):
 
         return {"val_loss": loss}
 
+    def empty(self):
+        return
+        yield
+
     def configure_optimizers(self) -> Any:
-        # params = [
-        #     {
-        #         "params": self.clip_model.img_model.parameters(),
-        #         "lr": self.cfg["image_model"]["lr"],
-        #     },
-        #     {
-        #         "params": self.clip_model.text_model.parameters(),
-        #         "lr": self.cfg["text_model"]["lr"],
-        #     },
-        #     {
-        #         "params": itertools.chain(
-        #             self.clip_model.img_projection.parameters(),
-        #             self.clip_model.text_projection.parameters(),
-        #         ),
-        #         "lr": self.cfg["projection_head_lr"],
-        #         "weight_decay": self.cfg["projection_head_weight_decay"],
-        #     },
-        # ]
-        optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"]
-        )
+        params = [
+            {
+                "params": self.clip_model.img_model.parameters(),
+                "lr": self.cfg["image_model"]["lr"],
+                "weight_decay": self.cfg["image_model"]["weight_decay"],
+            },
+            {
+                "params": self.clip_model.text_model.parameters(),
+                "lr": self.cfg["text_model"]["lr"],
+                "weight_decay": self.cfg["text_model"]["weight_decay"],
+            },
+            {
+                "params": itertools.chain(
+                    self.clip_model.img_projection.parameters(),
+                    self.clip_model.text_projection.parameters(),
+                    self.img_prior_d.parameters()
+                    if self.img_prior_d is not None
+                    else self.empty(),
+                    self.txt_prior_d.parameters()
+                    if self.txt_prior_d is not None
+                    else self.empty(),
+                ),
+                "lr": self.cfg["lr"],
+                "weight_decay": self.cfg["weight_decay"],
+            },
+        ]
+        optimizer = torch.optim.AdamW(params=params, weight_decay=0.0)
+        # optimizer = torch.optim.Adam(
+        #     self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"]
+        # )
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer, self.cfg["T_0"], eta_min=self.cfg["min_lr"], verbose=True
