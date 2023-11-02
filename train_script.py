@@ -18,7 +18,7 @@ import yaml
 
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
 from pytorch_lightning.loggers.wandb import WandbLogger
-from transformers import CLIPTokenizerFast
+from transformers import CLIPTokenizerFast, ConvBertTokenizer
 
 from trainer import LitMobileCLiP
 from utility.datasets import TextVisualDataset
@@ -107,9 +107,13 @@ if __name__ == "__main__":
         except yaml.YAMLError as exc:
             print(exc)
 
-    tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
-    tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
-    tokenizer.padding_side = "left"
+    if config["text_model_name"] != "convbert":
+        tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
+        tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+        tokenizer.padding_side = "left"
+
+    else:
+        tokenizer = ConvBertTokenizer.from_pretrained("YituTech/conv-bert-base")
 
     train_transforms = alb.Compose(
         [

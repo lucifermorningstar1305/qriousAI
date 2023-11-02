@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from models.image_models import ImageEncoder
-from models.text_models import LiteTransformerEncoder
+from models.text_models import LiteTransformerEncoder, ConvBertEncoder
 from models.clip_lite_models import MIProjection
 import sys
 
@@ -30,14 +30,20 @@ class MobileCLiP(nn.Module):
             alpha=config["image_model"]["alpha"],
         )
 
-        self.text_model = LiteTransformerEncoder(config["text_model"])
+        self.text_model = None
+        if self.config["text_model_name"] != "convbert":
+            self.text_model = LiteTransformerEncoder(config["text_model"])
+        else:
+            self.text_model = ConvBertEncoder(config["convbert_model"])
 
         self.img_projection = MIProjection(
             inp_dim=config["image_model"]["output_dim"],
             proj_dim=config["clip_model"]["proj_dim"],
         )
         self.text_projection = MIProjection(
-            inp_dim=config["text_model"]["output_dim"],
+            inp_dim=config["text_model"]["output_dim"]
+            if config["text_model_name"] != "convbert"
+            else config["convbert_model"]["output_dim"],
             proj_dim=config["clip_model"]["proj_dim"],
         )
 

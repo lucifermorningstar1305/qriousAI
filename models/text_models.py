@@ -13,6 +13,8 @@ import math
 from models.text_conv_models import LightWeightConvBlock
 from models.text_transformers import TransformersEncoderBlock, PositionalEncoding
 
+from transformers import ConvBertModel, ConvBertConfig
+
 
 class LiteTransformerEncoder(nn.Module):
     def __init__(self, config: Dict):
@@ -88,12 +90,12 @@ class LiteTransformerEncoder(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.uniform_(self.embedding.weight, -0.1, 0.1)
+        nn.init.normal_(self.embedding.weight, mean=0, std=self.embed_dim**-0.5)
         for module in self.n_blocks:
             for name, m in module["ffn"].named_modules():
                 if "Linear" in name:
-                    m.bias.data.zero_()
-                    m.weight.data.uniform_(-0.1, 0.1)
+                    nn.init.constant_(m.bias, 0.0)
+                    nn.init.xavier_uniform_(m.weight)
 
     def forward(
         self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None
@@ -134,3 +136,23 @@ class LiteTransformerEncoder(nn.Module):
             x = self.last_layer_norm(x)
 
         return x
+
+
+class ConvBertEncoder(nn.Module):
+    def __init__(self, config: Dict):
+        super().__init__()
+        self.model = None
+        if config["pretrained"]:
+            self.model = ConvBertModel.from_pretrained("YituTech/conv-bert-base")
+
+        else:
+            conv_bert_cfg = ConvBertConfig(
+                num_hidden_layers=config["num_hidden_layers"],
+                num_attention_heads=config["num_attention_heads"],
+            )
+            self.model = ConvBertModel(conv_bert_cfg)
+
+    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None):
+        return self.model(input_ids=x, attention_mask=attn_mask).last_hidden_state[
+            :, 0, :
+        ]
