@@ -8,6 +8,7 @@ from typing import List, Tuple, Dict, Optional, Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 from models.text_conv_models import LightWeightConvBlock
 from models.text_transformers import TransformersEncoderBlock, PositionalEncoding
@@ -108,7 +109,7 @@ class LiteTransformerEncoder(nn.Module):
         --------
         a tensor of shape (B x T x C)
         """
-        x = self.embedding(x)
+        x = self.embedding(x) * math.sqrt(self.embed_dim)
         for i, block in enumerate(self.n_blocks):
             x_left = x[:, :, : self.embed_dim // 2]
             x_right = x[:, :, self.embed_dim // 2 :]

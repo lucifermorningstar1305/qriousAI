@@ -78,7 +78,6 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x * math.sqrt(self.embed_dim)
         seq_len = x.size(1)
         x = x.transpose(0, 1)  # (B, T, C) -> (T, B, C)
         x = x + self.pe[:seq_len]
