@@ -26,7 +26,7 @@ class JSDInfoMaxLoss(nn.Module):
         if txt_prior is not None:
             PRIOR += txt_prior
 
-        CROSS_MODAL_LOSS = Ej - Em
+        CROSS_MODAL_LOSS = Em - Ej
 
         TOTAL_LOSS = ((1.0 - self.prior_wt) * CROSS_MODAL_LOSS) + (
             self.prior_wt * PRIOR
