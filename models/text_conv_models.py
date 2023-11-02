@@ -115,8 +115,9 @@ class LightWeightConvBlock(nn.Module):
 
     def forward(self, x: torch.Tensor, attn_mask: torch.Tensor) -> torch.Tensor:
         x = self.proj(x)
-        attn_mask = attn_mask.unsqueeze(2)
+
         if attn_mask is not None:
+            attn_mask = attn_mask.unsqueeze(2)
             x = x.masked_fill(attn_mask == 0, 0)
         x = F.glu(x, dim=-1)  # Converts the (B, T, 2*C) -> (B, T, C)
         x = self.lconv(x)

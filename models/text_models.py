@@ -117,7 +117,7 @@ class LiteTransformerEncoder(nn.Module):
                 x_left = self.pos_encoding(x_left)
 
             x_left_out = block["trans_encoder"](x_left, attn_mask)
-            x_right_out = block["lconv_block"](x_right, attn_mask)
+            x_right_out = block["lconv_block"](x_right, None)
 
             concat_x = torch.concat([x_left_out, x_right_out], dim=-1)
             concat_x = self.dropout(concat_x)
