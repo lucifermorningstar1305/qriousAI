@@ -15,6 +15,8 @@ from models.text_models import LiteTransformerEncoder
 from models.clip_lite_models import MIProjection
 import sys
 
+torch.set_float32_matmul_precision("medium")
+
 
 class MobileCLiP(nn.Module):
     def __init__(self, config: Dict):

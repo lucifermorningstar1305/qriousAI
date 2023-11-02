@@ -173,11 +173,17 @@ if __name__ == "__main__":
     )
 
     train_dl = td.DataLoader(
-        train_ds, batch_size=config["train_batch_size"], shuffle=True, num_workers=4
+        train_ds,
+        batch_size=config["train_batch_size"],
+        shuffle=True,
+        num_workers=os.cpu_count(),
     )
 
     val_dl = td.DataLoader(
-        val_ds, batch_size=config["val_batch_size"], shuffle=False, num_workers=4
+        val_ds,
+        batch_size=config["val_batch_size"],
+        shuffle=False,
+        num_workers=os.cpu_count(),
     )
 
     model = LitMobileCLiP(config)

@@ -17,6 +17,8 @@ from models.clip_lite_models import PriorDiscriminator
 # from losses.cross_entropy import CrossEntropyWithLogits
 from losses.jsd_info_max_loss import JSDInfoMaxLoss
 
+torch.set_float32_matmul_precision("medium")
+
 
 class LitMobileCLiP(pl.LightningModule):
     def __init__(self, config: Dict):
