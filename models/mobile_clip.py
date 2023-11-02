@@ -70,7 +70,7 @@ class MobileCLiP(nn.Module):
             # eos_embedding_loc = self.get_eos_embedding_pos(attn_mask)
             txt_feats = self.text_model(text, attn_mask)
             # txt_feats = txt_feats[torch.arange(text.size(0)), eos_embedding_loc, :]
-            txt_proj = self.text_projection(txt_feats[:, -1, :])
+            txt_proj = self.text_projection(txt_feats)
 
             Ej = -F.softplus(-self._common_steps(img_proj, txt_proj)).mean()
 
@@ -79,7 +79,7 @@ class MobileCLiP(nn.Module):
                 (txt_feats[1:], txt_feats[0].unsqueeze(0)), dim=0
             )
 
-            txt_proj_prime = self.text_projection(txt_feats_prime[:, -1, :])
+            txt_proj_prime = self.text_projection(txt_feats_prime)
             Em = F.softplus(self._common_steps(img_proj, txt_proj_prime)).mean()
 
         elif neg_text is not None:
@@ -94,7 +94,7 @@ class MobileCLiP(nn.Module):
             neg_txt_feats = self.text_model(neg_text, neg_attn_mask)
 
             txt_feat_all = torch.cat((txt_feats, neg_txt_feats), dim=0)
-            txt_proj = self.text_projection(txt_feat_all[:, -1, :])
+            txt_proj = self.text_projection(txt_feat_all)
 
             Ej = -F.softplus(-self._common_steps(img_proj, txt_proj)).mean()
 
@@ -103,7 +103,7 @@ class MobileCLiP(nn.Module):
                 (txt_feats[1:], txt_feats[0].unsqueeze(0)), dim=0
             )
             neg_txt_feat_all = torch.cat((neg_txt_feats, txt_feats_prime), dim=0)
-            neg_txt_proj = self.text_projection(neg_txt_feat_all[:, -1, :])
+            neg_txt_proj = self.text_projection(neg_txt_feat_all)
 
             Em = F.softplus(self._common_steps(img_proj, neg_txt_proj)).mean()
 
@@ -137,7 +137,7 @@ class MobileCLiP(nn.Module):
         # txt_out = self.text_model(x, attn_mask)[
         #     torch.arange(x.size(0)), eos_embedding_loc, :
         # ]
-        txt_out = self.text_model(x, attn_mask)[:, -1, :]
+        txt_out = self.text_model(x, attn_mask)
         txt_proj = self.text_projection(txt_out)
 
         return txt_proj

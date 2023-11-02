@@ -182,9 +182,7 @@ class MobileNetv2(nn.Module):
     def __init__(self, in_channels: int, out_dim: int, alpha: Optional[int] = 1.0):
         super().__init__()
 
-        self.mobile_model = torchvision.models.mobilenet_v2(
-            torchvision.models.MobileNet_V2_Weights.DEFAULT
-        )
+        self.mobile_model = torchvision.models.mobilenet_v2()
         in_features = self.mobile_model.classifier[-1].in_features
         self.mobile_model.classifier[-1] = nn.Identity()
 
@@ -196,9 +194,7 @@ class MobileNetv3Small(nn.Module):
     def __init__(self, in_channels: int, out_dim: int, alpha: Optional[int] = 1.0):
         super().__init__()
 
-        self.mobile_model = torchvision.models.mobilenet_v3_small(
-            torchvision.models.MobileNet_V3_Small_Weights.DEFAULT
-        )
+        self.mobile_model = torchvision.models.mobilenet_v3_small()
         in_features = self.mobile_model.classifier[-1].in_features
         self.mobile_model.classifier[-1] = nn.Identity()
 
@@ -210,9 +206,7 @@ class MobileNetv3Large(nn.Module):
     def __init__(self, in_channels: int, alpha: Optional[int] = 1.0):
         super().__init__()
 
-        self.mobile_model = torchvision.models.mobilenet_v3_large(
-            torchvision.models.MobileNet_V3_Large_Weights.DEFAULT
-        )
+        self.mobile_model = torchvision.models.mobilenet_v3_large()
         in_features = self.mobile_model.classifier[-1].in_features
         self.mobile_model.classifier[-1] = nn.Identity()
 

@@ -122,7 +122,8 @@ class LiteTransformerEncoder(nn.Module):
 
             x = add_norm2
 
-        x = self.out_layer(x)
+        x = self.out_layer(x[:, -1, :])
+        x = F.tanh(x)
         if self.last_layer_norm is not None:
             x = self.last_layer_norm(x)
 
