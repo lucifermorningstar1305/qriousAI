@@ -176,7 +176,7 @@ class LitMobileCLiP(pl.LightningModule):
                 "weight_decay": self.cfg["weight_decay"],
             },
         ]
-        optimizer = torch.optim.AdamW(params=params, weight_decay=0.0)
+        optimizer = torch.optim.Adam(params=params, weight_decay=0.0)
         # optimizer = torch.optim.Adam(
         #     self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"]
         # )

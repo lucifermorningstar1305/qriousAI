@@ -116,6 +116,7 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
 
     true_labels = list()
     pred_labels = list()
+    preds = list()
 
     with prog_bar as p:
         model.eval()
@@ -130,10 +131,14 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
             pred_label = torch.argmax(similarities, dim=1)
 
             true_labels.append(label.detach().numpy())
+            preds.append(similarities.detach().cpu().numpy())
             pred_labels.append(pred_label.detach().cpu().numpy())
 
     true_labels = np.asarray(true_labels)
     pred_labels = np.asarray(pred_labels)
+    preds = np.concatenate(preds, axis=0)
+    # preds = np.squeeze(preds, axis=1)
+    print(preds.shape)
 
     unique_preds, counts = np.unique(pred_labels, return_counts=True)
     unique_preds = unique_preds.reshape(-1, 1)
@@ -142,8 +147,8 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
     print(np.hstack((unique_preds, counts)))
 
     return {
-        "top_1_accuracy": top_k_accuracy_score(true_labels, pred_labels, k=1),
-        "top_5_accuracy": top_k_accuracy_score(true_labels, pred_labels, k=5),
+        "top_1_accuracy": top_k_accuracy_score(true_labels, preds, k=1),
+        "top_5_accuracy": top_k_accuracy_score(true_labels, preds, k=5),
     }
 
 
