@@ -18,11 +18,17 @@ import sys
 import argparse
 import yaml
 
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, top_k_accuracy_score
 from trainer import LitMobileCLiP
 from transformers import CLIPTokenizerFast
 from utility.datasets import ZeroShotTextVisualDataset
 from PIL import Image
+from utility.transform_data import (
+    NormalizeCaption,
+    IMAGENET_COLOR_MEAN,
+    IMAGENET_COLOR_STD,
+)
+import albumentations as alb
 
 from rich.progress import (
     Progress,
@@ -44,6 +50,15 @@ def text_process(txt: str, tokenizer: Callable, max_length: int) -> torch.Tensor
     """
     Function to obtain the text captions as a torch Tensor
     """
+    tokenizer.add_special_tokens({"pad_token": "<|pad|>"})
+    tokenizer.padding_side = "left"
+    txt = txt.lower()
+    txt += "."
+
+    # text_transform = alb.Compose([NormalizeCaption(max_caption_length=max_length)])
+    # txt_obj = text_transform(caption=txt)
+    # txt = txt_obj["caption"]
+
     tok_outputs = tokenizer(
         txt,
         max_length=max_length,
@@ -109,10 +124,10 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
             label = batch["label"]
 
             img_encoding = model.encode_image(img.to("cuda:0"))
-            similarities = (
-                text_tensors.to("cuda:0") @ F.normalize(img_encoding, p=2, dim=-1).t()
-            )
-            pred_label = torch.argmax(similarities, dim=0)
+            img_encoding = F.normalize(img_encoding, p=2, dim=-1)
+            text_tensors = text_tensors.cuda()
+            similarities = img_encoding @ text_tensors.t()
+            pred_label = torch.argmax(similarities, dim=1)
 
             true_labels.append(label.detach().numpy())
             pred_labels.append(pred_label.detach().cpu().numpy())
@@ -126,7 +141,10 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
     print(f"frequency of each predicted classes by the model")
     print(np.hstack((unique_preds, counts)))
 
-    return accuracy_score(true_labels, pred_labels)
+    return {
+        "top_1_accuracy": top_k_accuracy_score(true_labels, pred_labels, k=1),
+        "top_5_accuracy": top_k_accuracy_score(true_labels, pred_labels, k=5),
+    }
 
 
 if __name__ == "__main__":
@@ -183,26 +201,57 @@ if __name__ == "__main__":
 
     text_tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
 
-    integer_label_map = {k: idx for idx, k in enumerate(df["text"].unique())}
-    print(integer_label_map)
+    prompts = [
+        "a picture of an airplane.",
+        "a picture of an automobile.",
+        "a picture of a bird.",
+        "a picture of a cat.",
+        "a picture of a deer.",
+        "a picture of a dog.",
+        "a picture of a frog.",
+        "a picture of a horse.",
+        "a picture of a ship.",
+        "a picture of a truck.",
+    ]
 
-    unique_captions = df["text"].unique().tolist()
-
-    df["label"] = df["text"].map(integer_label_map)
+    integer_label_map = {
+        "airplane": 0,
+        "automobile": 1,
+        "bird": 2,
+        "cat": 3,
+        "deer": 4,
+        "dog": 5,
+        "frog": 6,
+        "horse": 7,
+        "ship": 8,
+        "truck": 9,
+    }
+    print(df["label"].unique())
+    df["label"] = df["label"].str.lower().map(integer_label_map)
+    print(df.head())
 
     tokenized_txts = [
         text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
-        for txt in unique_captions
+        for txt in prompts
     ]
 
     txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
 
-    transformations = torchvision.transforms.Compose(
+    # transformations = torchvision.transforms.Compose(
+    #     [
+    #         torchvision.transforms.Resize((224, 224)),
+    #         torchvision.transforms.ToTensor(),
+    #         torchvision.transforms.Normalize(
+    #             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+    #         ),
+    #     ]
+    # )
+
+    transformations = alb.Compose(
         [
-            torchvision.transforms.Resize((224, 224)),
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize(
-                (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
+            alb.Resize(224, 224, always_apply=True),
+            alb.Normalize(
+                mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, always_apply=True
             ),
         ]
     )
@@ -219,4 +268,4 @@ if __name__ == "__main__":
 
     acc = evaluate(test_dl, model, txt_tensors)
 
-    print(f"Zero-shot accuracy: {acc*100:.2f}%")
+    print(acc)

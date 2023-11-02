@@ -111,13 +111,15 @@ class ZeroShotTextVisualDataset(td.Dataset):
     def __init__(
         self,
         data: Any,
-        transformations: Callable,
         config: Dict,
+        resize: Optional[Tuple] = None,
+        transformations: Optional[Callable] = T.DEFAULT_IMAGE_TRANSFORM,
     ):
         assert isinstance(
             data, pd.DataFrame
         ), f"Expected data to be a pandas Dataframe. Found {type(data)}"
         self.data = data
+        self.resize = resize
         self.transformations = transformations
         self.cfg = config
 
@@ -130,7 +132,17 @@ class ZeroShotTextVisualDataset(td.Dataset):
         label = rec["label"]
 
         img = Image.open(img_path).convert("RGB")
-        img = self.transformations(img)
+
+        if self.resize is not None:
+            img = img.resize(
+                (self.resize[1], self.resize[0]), resample=Image.Resampling.BILINEAR
+            )
+        img = np.array(img)
+
+        img_obj = self.transformations(image=img)
+        img = img_obj["image"]
+        img = np.transpose(img, (2, 0, 1))
+        img = torch.tensor(img, dtype=torch.float)
 
         return {
             "img": img,
