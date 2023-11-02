@@ -54,12 +54,12 @@ class LiteTransformerEncoder(nn.Module):
                         "ffn": nn.Sequential(
                             nn.Linear(
                                 in_features=config["embedding_dim"],
-                                out_features=config["embedding_dim"] * 4,
+                                out_features=config["ffn_embedding_dim"],
                             ),
                             nn.ReLU(),
                             nn.Dropout(p=dropout_rate),
                             nn.Linear(
-                                in_features=config["embedding_dim"] * 4,
+                                in_features=config["ffn_embedding_dim"],
                                 out_features=config["embedding_dim"],
                             ),
                         ),
@@ -70,7 +70,7 @@ class LiteTransformerEncoder(nn.Module):
         )
 
         self.pos_encoding = PositionalEncoding(
-            embed_dim=config["embedding_dim"],
+            embed_dim=config["embedding_dim"] // 2,
             max_seq_length=config["max_seq_length"],
             dropout_rate=config["pos_encoding_dropout_rate"],
         )
@@ -104,11 +104,11 @@ class LiteTransformerEncoder(nn.Module):
         a tensor of shape (B x T x C)
         """
         x = self.embedding(x)
-        x = self.pos_encoding(x)
-        for block in self.n_blocks:
+        for i, block in enumerate(self.n_blocks):
             x_left = x[:, :, : self.embed_dim // 2]
             x_right = x[:, :, self.embed_dim // 2 :]
-            # x_left = self.pos_encoding(x_left)
+            if i == 0:
+                x_left = self.pos_encoding(x_left)
 
             x_left_out = block["trans_encoder"](x_left, attn_mask)
             x_right_out = block["lconv_block"](x_right, attn_mask)

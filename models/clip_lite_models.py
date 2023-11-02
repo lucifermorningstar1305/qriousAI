@@ -13,7 +13,7 @@ class MIProjection(nn.Module):
         self.feat_nonlinear = nn.Sequential(
             nn.Linear(in_features=inp_dim, out_features=proj_dim),
             nn.BatchNorm1d(num_features=proj_dim),
-            nn.GELU(),
+            nn.ReLU(),
             nn.Linear(in_features=proj_dim, out_features=proj_dim),
         )
 
