@@ -193,6 +193,7 @@ if __name__ == "__main__":
         batch_size=config["train_batch_size"],
         shuffle=True,
         num_workers=os.cpu_count(),
+        pin_memory=True,
     )
 
     val_dl = td.DataLoader(
@@ -200,6 +201,7 @@ if __name__ == "__main__":
         batch_size=config["val_batch_size"],
         shuffle=False,
         num_workers=os.cpu_count(),
+        pin_memory=True,
     )
 
     model = LitMobileCLiP(config)
