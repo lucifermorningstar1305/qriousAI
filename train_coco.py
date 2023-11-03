@@ -18,7 +18,12 @@ import sys
 import yaml
 import zipfile
 
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, RichProgressBar
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    ModelCheckpoint,
+    RichProgressBar,
+    StochasticWeightAveraging,
+)
 from pytorch_lightning.loggers.wandb import WandbLogger
 from transformers import CLIPTokenizerFast, ConvBertTokenizer
 
@@ -103,6 +108,23 @@ if __name__ == "__main__":
         default=1.0,
         help="the amount of data to train on.",
     )
+    parser.add_argument(
+        "--accumulate_grad_batches",
+        "-a",
+        required=False,
+        type=int,
+        default=1,
+        help="the number of batches to accumulate gradients",
+    )
+
+    parser.add_argument(
+        "--use_swa",
+        "-s",
+        required=0,
+        type=int,
+        default=1,
+        help="whether to use SWA or not.",
+    )
 
     args = parser.parse_args()
 
@@ -114,8 +136,11 @@ if __name__ == "__main__":
     checkpoint_dir = args.checkpoint_dir
     checkpoint_filename = args.checkpoint_filename
     data_size = args.data_size
+    accumulate_grad_batches = args.accumulate_grad_batches
+    use_swa = args.use_swa
 
     assert 0 < data_size <= 1, "Expected data size to be within the range (0, 1]"
+    assert use_swa in [0, 1], "Expected use_swa to be either 0/1"
 
     train_csv_data = pol.read_csv(train_data_path)
     val_csv_data = pol.read_csv(val_data_path)
@@ -124,7 +149,7 @@ if __name__ == "__main__":
         ["file_name", "image_path", "caption"]
     ).sample(fraction=data_size, seed=32)
     val_csv_data = val_csv_data.select(["file_name", "image_path", "caption"]).sample(
-        n=10_000, seed=32
+        n=2000, seed=32
     )
     train_csv_data = train_csv_data.to_pandas()
     val_csv_data = val_csv_data.to_pandas()
@@ -218,6 +243,15 @@ if __name__ == "__main__":
         verbose=True,
     )
     rich_prog_bar = RichProgressBar()
+    swa = StochasticWeightAveraging(
+        swa_lrs=[config["image_model"]["lr"], config["text_model"]["lr"], config["lr"]]
+    )
+
+    callbacks = (
+        [early_stop, model_chkpt, rich_prog_bar, swa]
+        if use_swa
+        else [early_stop, model_chkpt, rich_prog_bar, swa]
+    )
 
     logger = WandbLogger(
         project="MobileCLIP",
@@ -232,10 +266,11 @@ if __name__ == "__main__":
         devices=torch.cuda.device_count(),
         precision="16-mixed",
         max_epochs=max_epochs,
-        callbacks=[early_stop, model_chkpt, rich_prog_bar],
+        callbacks=callbacks,
         logger=logger,
         gradient_clip_val=config["clip_grad_val"],
         gradient_clip_algorithm="value",
+        accumulate_grad_batches=accumulate_grad_batches,
     )
 
     trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl)

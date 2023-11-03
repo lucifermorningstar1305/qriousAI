@@ -190,6 +190,7 @@ class CocoDataset(td.Dataset):
 
         neg_rec = self.data.loc[self.data["file_name"] != img_file_name].sample(n=1)
         neg_img_file_name = neg_rec["file_name"].values[0]
+        neg_text = neg_rec["caption"].values[0]
 
         neg_img_path = os.path.join(
             img_file_root_path.split(".")[0],
@@ -212,7 +213,7 @@ class CocoDataset(td.Dataset):
         neg_img = np.array(neg_img)
 
         trans_og_data = self.transformations(image=img, caption=text)
-        trans_neg_data = self.transformations(image=neg_img, caption=text)
+        trans_neg_data = self.transformations(image=neg_img, caption=neg_text)
 
         img, text = trans_og_data["image"], trans_og_data["caption"]
         neg_img, neg_text = trans_neg_data["image"], trans_neg_data["caption"]
@@ -223,11 +224,11 @@ class CocoDataset(td.Dataset):
         img = torch.tensor(img, dtype=torch.float)
         neg_img = torch.tensor(neg_img, dtype=torch.float)
 
-        # text_obj = self.text_transformations(caption=text)
-        # neg_text_obj = self.text_transformations(caption=neg_text)
+        text_obj = self.text_transformations(caption=text)
+        neg_text_obj = self.text_transformations(caption=neg_text)
 
-        # text = text_obj["caption"]
-        # neg_text = neg_text_obj["caption"]
+        text = text_obj["caption"]
+        neg_text = neg_text_obj["caption"]
 
         tok_res = self.text_tokenizer(
             text,

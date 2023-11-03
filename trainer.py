@@ -103,23 +103,23 @@ class LitMobileCLiP(pl.LightningModule):
             neg_txt["attention_mask"].squeeze().float(),
         )
 
-        # out = self(
-        #     img,
-        #     txt_input_ids,
-        #     txt_attn_mask,
-        #     neg_image=neg_img,
-        #     neg_text=neg_txt_input_ids,
-        #     neg_attn_mask=neg_txt_attn_mask,
-        # )
-
         out = self(
             img,
             txt_input_ids,
             txt_attn_mask,
-            neg_image=None,
-            neg_text=None,
-            neg_attn_mask=None,
+            neg_image=neg_img,
+            neg_text=neg_txt_input_ids,
+            neg_attn_mask=neg_txt_attn_mask,
         )
+
+        # out = self(
+        #     img,
+        #     txt_input_ids,
+        #     txt_attn_mask,
+        #     neg_image=None,
+        #     neg_text=None,
+        #     neg_attn_mask=None,
+        # )
         loss = self._compute_loss(out)
 
         return loss
