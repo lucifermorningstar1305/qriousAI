@@ -103,15 +103,23 @@ class LitMobileCLiP(pl.LightningModule):
             neg_txt["attention_mask"].squeeze().float(),
         )
 
+        # out = self(
+        #     img,
+        #     txt_input_ids,
+        #     txt_attn_mask,
+        #     neg_image=neg_img,
+        #     neg_text=neg_txt_input_ids,
+        #     neg_attn_mask=neg_txt_attn_mask,
+        # )
+
         out = self(
             img,
             txt_input_ids,
             txt_attn_mask,
-            neg_image=neg_img,
-            neg_text=neg_txt_input_ids,
-            neg_attn_mask=neg_txt_attn_mask,
+            neg_image=None,
+            neg_text=None,
+            neg_attn_mask=None,
         )
-
         loss = self._compute_loss(out)
 
         return loss
@@ -150,36 +158,36 @@ class LitMobileCLiP(pl.LightningModule):
         yield
 
     def configure_optimizers(self) -> Any:
-        # params = [
-        #     {
-        #         "params": self.clip_model.img_model.parameters(),
-        #         "lr": self.cfg["image_model"]["lr"],
-        #         "weight_decay": self.cfg["image_model"]["weight_decay"],
-        #     },
-        #     {
-        #         "params": self.clip_model.text_model.parameters(),
-        #         "lr": self.cfg["text_model"]["lr"],
-        #         "weight_decay": self.cfg["text_model"]["weight_decay"],
-        #     },
-        #     {
-        #         "params": itertools.chain(
-        #             self.clip_model.img_projection.parameters(),
-        #             self.clip_model.text_projection.parameters(),
-        #             self.img_prior_d.parameters()
-        #             if self.img_prior_d is not None
-        #             else self.empty(),
-        #             self.txt_prior_d.parameters()
-        #             if self.txt_prior_d is not None
-        #             else self.empty(),
-        #         ),
-        #         "lr": self.cfg["lr"],
-        #         "weight_decay": self.cfg["weight_decay"],
-        #     },
-        # ]
-        # optimizer = torch.optim.Adam(params=params, weight_decay=0.0)
-        optimizer = torch.optim.Adam(
-            self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"]
-        )
+        params = [
+            {
+                "params": self.clip_model.img_model.parameters(),
+                "lr": self.cfg["image_model"]["lr"],
+                "weight_decay": self.cfg["image_model"]["weight_decay"],
+            },
+            {
+                "params": self.clip_model.text_model.parameters(),
+                "lr": self.cfg["text_model"]["lr"],
+                "weight_decay": self.cfg["text_model"]["weight_decay"],
+            },
+            {
+                "params": itertools.chain(
+                    self.clip_model.img_projection.parameters(),
+                    self.clip_model.text_projection.parameters(),
+                    self.img_prior_d.parameters()
+                    if self.img_prior_d is not None
+                    else self.empty(),
+                    self.txt_prior_d.parameters()
+                    if self.txt_prior_d is not None
+                    else self.empty(),
+                ),
+                "lr": self.cfg["lr"],
+                "weight_decay": self.cfg["weight_decay"],
+            },
+        ]
+        optimizer = torch.optim.Adam(params=params, weight_decay=0.0)
+        # optimizer = torch.optim.Adam(
+        #     self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"]
+        # )
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer, self.cfg["T_0"], eta_min=self.cfg["min_lr"], verbose=True

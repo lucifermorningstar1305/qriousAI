@@ -214,7 +214,9 @@ class MobileNetv3Large(nn.Module):
             torchvision.models.MobileNet_V3_Large_Weights.DEFAULT
         )
         in_features = self.mobile_model.classifier[-1].in_features
-        self.mobile_model.classifier[-1] = nn.Identity()
+        self.mobile_model.classifier[-1] = nn.Linear(
+            in_features=in_features, out_features=in_features
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mobile_model(x)
