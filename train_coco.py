@@ -95,6 +95,15 @@ if __name__ == "__main__":
         help="the name of the checkpoint file to be saved as",
     )
 
+    parser.add_argument(
+        "--data_size",
+        "-D",
+        required=False,
+        type=float,
+        default=1.0,
+        help="the amount of data to train on.",
+    )
+
     args = parser.parse_args()
 
     train_data_path = args.train_data_path
@@ -104,15 +113,29 @@ if __name__ == "__main__":
     early_stopping_patience = args.early_stopping_patience
     checkpoint_dir = args.checkpoint_dir
     checkpoint_filename = args.checkpoint_filename
+    data_size = args.data_size
+
+    assert 0 < data_size <= 1, "Expected data size to be within the range (0, 1]"
 
     train_csv_data = pol.read_csv(train_data_path)
     val_csv_data = pol.read_csv(val_data_path)
 
-    train_csv_data = train_csv_data.select(["file_name", "image_path", "caption"])
-    val_csv_data = val_csv_data.select(["file_name", "image_path", "caption"])
+    train_csv_data = train_csv_data.select(
+        ["file_name", "image_path", "caption"]
+    ).sample(fraction=data_size, seed=32)
+    val_csv_data = val_csv_data.select(["file_name", "image_path", "caption"]).sample(
+        n=10_000, seed=32
+    )
+    train_csv_data = train_csv_data.to_pandas()
+    val_csv_data = val_csv_data.to_pandas()
 
-    train_img_zips = zipfile.ZipFile(train_csv_data.row(0)[1])
-    val_img_zips = zipfile.ZipFile(val_csv_data.row(0)[1])
+    # train_img_zips = zipfile.ZipFile(train_csv_data.row(0)[1])
+    # val_img_zips = zipfile.ZipFile(val_csv_data.row(0)[1])
+    # print(val_img_zips.open(os.path.join("val2017", "000000252216.jpg")))
+    # exit(0)
+
+    # print(val_img_zips.open("val2017/000000179765.jpg"))
+    # exit(0)
 
     config = dict()
     with open(config_path, "r") as fp:
@@ -151,37 +174,11 @@ if __name__ == "__main__":
         ]
     )
 
-    # train_transforms = torchvision.transforms.Compose(
-    #     [
-    #         torchvision.transforms.Resize((224, 224)),
-    #         torchvision.transforms.RandomResizedCrop((224, 224)),
-    #         torchvision.transforms.RandomHorizontalFlip(),
-    #         torchvision.transforms.RandomRotation((0, 180)),
-    #         torchvision.transforms.RandomAutocontrast(),
-    #         torchvision.transforms.RandomVerticalFlip(),
-    #         torchvision.transforms.ToTensor(),
-    #         torchvision.transforms.Normalize(
-    #             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
-    #         ),
-    #     ]
-    # )
-
-    # val_transforms = torchvision.transforms.Compose(
-    #     [
-    #         torchvision.transforms.Resize((224, 224)),
-    #         torchvision.transforms.ToTensor(),
-    #         torchvision.transforms.Normalize(
-    #             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
-    #         ),
-    #     ]
-    # )
-
     train_ds = CocoDataset(
         data=train_csv_data,
         text_tokenizer=tokenizer,
         transformations=train_transforms,
         config=config,
-        zip_obj=train_img_zips,
     )
 
     val_ds = CocoDataset(
@@ -189,7 +186,6 @@ if __name__ == "__main__":
         text_tokenizer=tokenizer,
         transformations=val_transforms,
         config=config,
-        zip_obj=val_img_zips,
     )
 
     train_dl = td.DataLoader(

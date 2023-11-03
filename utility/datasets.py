@@ -14,6 +14,7 @@ import numpy as np
 import utility.transform_data as T
 import albumentations as alb
 import os
+import random
 import zipfile
 
 from PIL import Image
@@ -159,13 +160,11 @@ class CocoDataset(td.Dataset):
         data: Any,
         text_tokenizer: Callable,
         config: Dict,
-        zip_obj: Any,
         resize: Optional[Tuple] = None,
         transformations: Callable = T.DEFAULT_IMAGE_TRANSFORM,
     ):
         self.data = data
         self.text_tokenizer = text_tokenizer
-        self.zip_obj = zip_obj
         self.resize = resize
         self.transformations = transformations
         self.text_transformations = alb.Compose(
@@ -181,23 +180,24 @@ class CocoDataset(td.Dataset):
         return self.data.shape[0]
 
     def __getitem__(self, idx: int):
-        rec = self.data.row(idx)
-        img_filename, img_root, text = rec
-        img_path = os.path.join(img_root.split(".")[0], img_filename)
+        rec = self.data.iloc[idx]
 
-        neg_img_filename, neg_img_root, neg_text = (
-            self.data.filter(pol.col("file_name") != img_filename)
-            .sample(n=1, seed=32)
-            .row(0)
+        img_file_name = rec["file_name"]
+        img_file_root_path = rec["image_path"]
+        text = rec["caption"]
+
+        img_path = os.path.join(img_file_root_path.split(".")[0], img_file_name)
+
+        neg_rec = self.data.loc[self.data["file_name"] != img_file_name].sample(n=1)
+        neg_img_file_name = neg_rec["file_name"].values[0]
+
+        neg_img_path = os.path.join(
+            img_file_root_path.split(".")[0],
+            neg_img_file_name,
         )
 
-        neg_img_path = os.path.join(neg_img_root.split(".")[0], neg_img_filename)
-
-        ifile = self.zip_obj.open(img_path)
-        neg_ifile = self.zip_obj.open(neg_img_path)
-
-        img = Image.open(ifile).convert("RGB")
-        neg_img = Image.open(neg_ifile).convert("RGB")
+        img = Image.open(img_path).convert("RGB")
+        neg_img = Image.open(neg_img_path).convert("RGB")
 
         if self.resize is not None:
             img = img.resize(
