@@ -9,9 +9,12 @@ import torch
 import torch.utils.data as td
 import torchvision
 import pandas as pd
+import polars as pol
 import numpy as np
 import utility.transform_data as T
 import albumentations as alb
+import os
+import zipfile
 
 from PIL import Image
 
@@ -148,3 +151,98 @@ class ZeroShotTextVisualDataset(td.Dataset):
             "img": img,
             "label": torch.tensor(label, dtype=torch.long),
         }
+
+
+class CocoDataset(td.Dataset):
+    def __init__(
+        self,
+        data: Any,
+        text_tokenizer: Callable,
+        config: Dict,
+        zip_obj: Any,
+        resize: Optional[Tuple] = None,
+        transformations: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+    ):
+        self.data = data
+        self.text_tokenizer = text_tokenizer
+        self.zip_obj = zip_obj
+        self.resize = resize
+        self.transformations = transformations
+        self.text_transformations = alb.Compose(
+            [
+                T.NormalizeCaption(
+                    max_caption_length=config["text_model"]["max_seq_length"]
+                )
+            ]
+        )
+        self.cfg = config
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def __getitem__(self, idx: int):
+        rec = self.data.row(idx)
+        img_filename, img_root, text = rec
+        img_path = os.path.join(img_root.split(".")[0], img_filename)
+
+        neg_img_filename, neg_img_root, neg_text = (
+            self.data.filter(pol.col("file_name") != img_filename)
+            .sample(n=1, seed=32)
+            .row(0)
+        )
+
+        neg_img_path = os.path.join(neg_img_root.split(".")[0], neg_img_filename)
+
+        ifile = self.zip_obj.open(img_path)
+        neg_ifile = self.zip_obj.open(neg_img_path)
+
+        img = Image.open(ifile).convert("RGB")
+        neg_img = Image.open(neg_ifile).convert("RGB")
+
+        if self.resize is not None:
+            img = img.resize(
+                (self.resize[1], self.resize[0]), resample=Image.Resampling.BILINEAR
+            )
+
+            neg_img = neg_img.resize(
+                (self.resize[1], self.resize[0]), resample=Image.Resampling.BILINEAR
+            )
+
+        img = np.array(img)
+        neg_img = np.array(neg_img)
+
+        trans_og_data = self.transformations(image=img, caption=text)
+        trans_neg_data = self.transformations(image=neg_img, caption=text)
+
+        img, text = trans_og_data["image"], trans_og_data["caption"]
+        neg_img, neg_text = trans_neg_data["image"], trans_neg_data["caption"]
+
+        img = np.transpose(img, (2, 0, 1))
+        neg_img = np.transpose(neg_img, (2, 0, 1))
+
+        img = torch.tensor(img, dtype=torch.float)
+        neg_img = torch.tensor(neg_img, dtype=torch.float)
+
+        # text_obj = self.text_transformations(caption=text)
+        # neg_text_obj = self.text_transformations(caption=neg_text)
+
+        # text = text_obj["caption"]
+        # neg_text = neg_text_obj["caption"]
+
+        tok_res = self.text_tokenizer(
+            text,
+            max_length=self.cfg["text_model"]["max_seq_length"],
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        neg_tok_res = self.text_tokenizer(
+            neg_text,
+            max_length=self.cfg["text_model"]["max_seq_length"],
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        return {"img": img, "txt": tok_res, "neg_img": neg_img, "neg_txt": neg_tok_res}
