@@ -120,10 +120,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--use_swa",
         "-s",
-        required=0,
+        required=False,
         type=int,
         default=1,
         help="whether to use SWA or not.",
+    )
+
+    parser.add_argument(
+        "--load_pretrained_checkpoint",
+        "-l",
+        required=False,
+        type=str,
+        default="",
+        help="load any previous checkpoint of the model to restart training",
     )
 
     args = parser.parse_args()
@@ -138,6 +147,7 @@ if __name__ == "__main__":
     data_size = args.data_size
     accumulate_grad_batches = args.accumulate_grad_batches
     use_swa = args.use_swa
+    load_pretrained_checkpoint = args.load_pretrained_checkpoint
 
     assert 0 < data_size <= 1, "Expected data size to be within the range (0, 1]"
     assert use_swa in [0, 1], "Expected use_swa to be either 0/1"
@@ -273,4 +283,11 @@ if __name__ == "__main__":
         accumulate_grad_batches=accumulate_grad_batches,
     )
 
-    trainer.fit(model, train_dataloaders=train_dl, val_dataloaders=val_dl)
+    trainer.fit(
+        model,
+        train_dataloaders=train_dl,
+        val_dataloaders=val_dl,
+        ckpt_path=None
+        if load_pretrained_checkpoint == ""
+        else load_pretrained_checkpoint,
+    )
