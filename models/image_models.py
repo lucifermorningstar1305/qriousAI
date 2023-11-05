@@ -49,7 +49,7 @@ class DepthwiseSeperableConv(nn.Module):
 
 
 class MobileNetv1(nn.Module):
-    def __init__(self, in_channels: int, out_dim: int, alpha: Optional[float] = 1.0):
+    def __init__(self, in_channels: int, alpha: Optional[float] = 1.0):
         super().__init__()
 
         assert (
@@ -179,28 +179,32 @@ class MobileNetv1(nn.Module):
 
 
 class MobileNetv2(nn.Module):
-    def __init__(self, in_channels: int, out_dim: int, alpha: Optional[int] = 1.0):
+    def __init__(self, in_channels: int, alpha: Optional[int] = 1.0):
         super().__init__()
 
         self.mobile_model = torchvision.models.mobilenet_v2(
             torchvision.models.MobileNet_V2_Weights.DEFAULT
         )
         in_features = self.mobile_model.classifier[-1].in_features
-        self.mobile_model.classifier[-1] = nn.Identity()
+        self.mobile_model.classifier[-1] = nn.Linear(
+            in_features=in_features, out_features=in_features
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mobile_model(x)
 
 
 class MobileNetv3Small(nn.Module):
-    def __init__(self, in_channels: int, out_dim: int, alpha: Optional[int] = 1.0):
+    def __init__(self, in_channels: int, alpha: Optional[int] = 1.0):
         super().__init__()
 
         self.mobile_model = torchvision.models.mobilenet_v3_small(
             torchvision.models.MobileNet_V3_Small_Weights.DEFAULT
         )
         in_features = self.mobile_model.classifier[-1].in_features
-        self.mobile_model.classifier[-1] = nn.Identity()
+        self.mobile_model.classifier[-1] = nn.Linear(
+            in_features=in_features, out_features=in_features
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.mobile_model(x)

@@ -24,20 +24,22 @@ class LitMobileCLiP(pl.LightningModule):
     def __init__(self, config: Dict):
         super().__init__()
 
-        self.cfg = config
+        self.save_hyperparameters()
+
+        # self.cfg = config
 
         self.clip_model = MobileCLiP(config)
         self.criterion = JSDInfoMaxLoss()
 
         self.img_prior_d, self.txt_prior_d = None, None
-        if self.cfg["image_model"]["prior"]:
+        if self.hparams.cfg["image_model"]["prior"]:
             self.img_prior_d = PriorDiscriminator(
-                inp_dim=self.cfg["image_model"]["output_dim"]
+                inp_dim=self.hparams.cfg["image_model"]["output_dim"]
             )
 
-        if self.cfg["text_model"]["prior"]:
+        if self.hparams.cfg["text_model"]["prior"]:
             self.txt_prior_d = PriorDiscriminator(
-                inp_dim=self.cfg["text_model"]["output_dim"]
+                inp_dim=self.hparams.cfg["text_model"]["output_dim"]
             )
 
     def forward(
@@ -62,7 +64,7 @@ class LitMobileCLiP(pl.LightningModule):
         IMG_PRIOR = None
         TXT_PRIOR = None
 
-        if self.cfg["image_model"]["prior"]:
+        if self.hparams.cfg["image_model"]["prior"]:
             img_prior = torch.rand_like(
                 model_out["img_feats"], device=model_out["img_feats"].device
             )
@@ -70,7 +72,7 @@ class LitMobileCLiP(pl.LightningModule):
             term_b = torch.log(1 - self.img_prior_d(model_out["img_feats"])).mean()
             IMG_PRIOR = -term_a - term_b
 
-        if self.cfg["text_model"]["prior"]:
+        if self.hparams.cfg["text_model"]["prior"]:
             txt_prior = torch.rand_like(
                 model_out["txt_feats"], device=model_out["txt_feats"].device
             )
@@ -161,13 +163,13 @@ class LitMobileCLiP(pl.LightningModule):
         params = [
             {
                 "params": self.clip_model.img_model.parameters(),
-                "lr": self.cfg["image_model"]["lr"],
-                "weight_decay": self.cfg["image_model"]["weight_decay"],
+                "lr": self.hparams.cfg["image_model"]["lr"],
+                "weight_decay": self.hparams.cfg["image_model"]["weight_decay"],
             },
             {
                 "params": self.clip_model.text_model.parameters(),
-                "lr": self.cfg["text_model"]["lr"],
-                "weight_decay": self.cfg["text_model"]["weight_decay"],
+                "lr": self.hparams.cfg["text_model"]["lr"],
+                "weight_decay": self.hparams.cfg["text_model"]["weight_decay"],
             },
             {
                 "params": itertools.chain(
@@ -180,17 +182,20 @@ class LitMobileCLiP(pl.LightningModule):
                     if self.txt_prior_d is not None
                     else self.empty(),
                 ),
-                "lr": self.cfg["lr"],
-                "weight_decay": self.cfg["weight_decay"],
+                "lr": self.hparams.cfg["lr"],
+                "weight_decay": self.hparams.cfg["weight_decay"],
             },
         ]
         optimizer = torch.optim.Adam(params=params, weight_decay=0.0)
         # optimizer = torch.optim.Adam(
-        #     self.parameters(), lr=self.cfg["lr"], weight_decay=self.cfg["weight_decay"]
+        #     self.parameters(), lr=self.hparams.cfg["lr"], weight_decay=self.hparams.cfg["weight_decay"]
         # )
 
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            optimizer, self.cfg["T_0"], eta_min=self.cfg["min_lr"], verbose=True
+            optimizer,
+            self.hparams.cfg["T_0"],
+            eta_min=self.hparams.cfg["min_lr"],
+            verbose=True,
         )
 
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
