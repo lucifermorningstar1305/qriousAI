@@ -199,7 +199,7 @@ class MobileNetv3Small(nn.Module):
         super().__init__()
 
         self.mobile_model = torchvision.models.mobilenet_v3_small(
-            torchvision.models.MobileNet_V3_Large_Weights.DEFAULT
+            torchvision.models.MobileNet_V3_Small_Weights.DEFAULT
         )
         in_features = self.mobile_model.classifier[-1].in_features
         self.mobile_model.classifier[-1] = nn.Linear(
