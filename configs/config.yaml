@@ -36,9 +36,9 @@ text_model:
   prior: False
 
 image_model:
-  model_name: "mobilenetv3_small"
+  model_name: "mobilenetv3"
   alpha: 1.0
-  output_dim: 1024
+  output_dim: 1280
   prior: True
   lr: 0.0001
   weight_decay: 0.0001

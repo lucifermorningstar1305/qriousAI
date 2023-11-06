@@ -17,6 +17,7 @@ import os
 import sys
 import argparse
 import yaml
+import pickle
 
 from sklearn.metrics import accuracy_score, top_k_accuracy_score
 from trainer import LitMobileCLiP
@@ -122,13 +123,13 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
     with prog_bar as p:
         model.eval()
         for batch in p.track(dataloader, description="Evaluating Model"):
-            img = batch["img"]
-            label = batch["label"]
+            img = batch[0]
+            label = batch[1]
 
             img_encoding = model.encode_image(img.to("cuda:0"))
             img_encoding = F.normalize(img_encoding, p=2, dim=-1)
             text_tensors = text_tensors.cuda()
-            similarities = img_encoding @ text_tensors.t()
+            similarities = (100.0 * img_encoding @ text_tensors.t()).softmax(dim=-1)
             pred_label = torch.argmax(similarities, dim=1)
 
             true_labels.append(label.detach().numpy())
@@ -153,6 +154,15 @@ def evaluate(dataloader: Any, model: Callable, text_tensors: torch.Tensor) -> fl
     }
 
 
+def unpickle(file_path: str) -> Dict:
+    """Function to unpickle the meta data of the CIFAR dataset"""
+
+    with open(file_path, "rb") as fp:
+        data = pickle.load(fp)
+
+    return data
+
+
 if __name__ == "__main__":
     torch.cuda.empty_cache()
 
@@ -162,11 +172,19 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--csv_path",
-        "-C",
+        "--root_dir",
+        "-r",
+        required=False,
+        type=str,
+        default="./eval_datasets",
+        help="the location where to download the datasets if not present",
+    )
+    parser.add_argument(
+        "--dataset",
+        "-d",
         required=True,
         type=str,
-        help="the csv file path for the data",
+        help="the name of the dataset for evaluation",
     )
 
     parser.add_argument(
@@ -185,11 +203,22 @@ if __name__ == "__main__":
         help="the config path for the models",
     )
 
+    parser.add_argument(
+        "--prompt",
+        "-P",
+        required=False,
+        type=str,
+        default="a photo of a",
+        help="the prompt template to use",
+    )
+
     args = parser.parse_args()
 
-    csv_path = args.csv_path
+    root_dir = args.root_dir
+    dataset_name = args.dataset
     model_checkpoint = args.model_checkpoint
     config_path = args.config_path
+    prompt_template = args.prompt
 
     cfg = None
     with open(config_path, "r") as fp:
@@ -198,7 +227,6 @@ if __name__ == "__main__":
         except yaml.YAMLError as exc:
             print(exc)
 
-    df = pd.read_csv(csv_path)
     # print(df.loc[df["label"].isna()])
     # print(torch.load(model_checkpoint)["state_dict"].keys())
     model = LitMobileCLiP.load_from_checkpoint(model_checkpoint, config=cfg)
@@ -207,72 +235,67 @@ if __name__ == "__main__":
 
     text_tokenizer = CLIPTokenizerFast.from_pretrained("openai/clip-vit-base-patch32")
 
-    prompts = [
-        "a picture of an airplane.",
-        "a picture of an automobile.",
-        "a picture of a bird.",
-        "a picture of a cat.",
-        "a picture of a deer.",
-        "a picture of a dog.",
-        "a picture of a frog.",
-        "a picture of a horse.",
-        "a picture of a ship.",
-        "a picture of a truck.",
-    ]
-
-    integer_label_map = {
-        "airplane": 0,
-        "automobile": 1,
-        "bird": 2,
-        "cat": 3,
-        "deer": 4,
-        "dog": 5,
-        "frog": 6,
-        "horse": 7,
-        "ship": 8,
-        "truck": 9,
-    }
-    pprint(integer_label_map)
-    print(df["label"].unique())
-    df["label"] = df["label"].str.lower().map(integer_label_map)
-    print(df.head())
-
-    tokenized_txts = [
-        text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
-        for txt in prompts
-    ]
-
-    txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
-
-    # transformations = torchvision.transforms.Compose(
-    #     [
-    #         torchvision.transforms.Resize((224, 224)),
-    #         torchvision.transforms.ToTensor(),
-    #         torchvision.transforms.Normalize(
-    #             (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
-    #         ),
-    #     ]
-    # )
-
-    transformations = alb.Compose(
+    transformations = torchvision.transforms.Compose(
         [
-            alb.Resize(224, 224, always_apply=True),
-            alb.Normalize(
-                mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD, always_apply=True
+            torchvision.transforms.Resize((224, 224)),
+            torchvision.transforms.ToTensor(),
+            torchvision.transforms.Normalize(
+                mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD
             ),
         ]
     )
 
-    # img_tensors = get_img_tensors(df["image_path"].tolist(), transformations)
+    if dataset_name == "cifar10":
+        cifar10_dataset = torchvision.datasets.CIFAR10(
+            root=root_dir, train=False, download=True, transform=transformations
+        )
 
-    test_ds = ZeroShotTextVisualDataset(
-        data=df,
-        transformations=transformations,
-        config=cfg,
-    )
+        meta_path = os.path.join(root_dir, "cifar-10-batches-py/batches.meta")
+        meta_data = unpickle(meta_path)
+        prompts = list(
+            map(lambda x: prompt_template + " " + x, meta_data["label_names"])
+        )
+        label_map = {k: idx for idx, k in enumerate(meta_data["label_names"])}
 
-    test_dl = td.DataLoader(test_ds, batch_size=1, shuffle=False, num_workers=1)
+        tokenized_txts = [
+            text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
+            for txt in prompts
+        ]
 
-    acc = evaluate(test_dl, model, txt_tensors)
+        pprint(label_map)
 
-    print(acc)
+        txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
+
+        test_dl = td.DataLoader(
+            cifar10_dataset, batch_size=1, shuffle=False, num_workers=1
+        )
+
+        acc = evaluate(test_dl, model, txt_tensors)
+        print(acc)
+
+    elif dataset_name == "cifar100":
+        cifar100_dataset = torchvision.datasets.CIFAR100(
+            root=root_dir, train=False, download=True, transform=transformations
+        )
+
+        meta_path = os.path.join(root_dir, "cifar-100-python/meta")
+        meta_data = unpickle(meta_path)
+        prompts = list(
+            map(lambda x: prompt_template + " " + x, meta_data["fine_label_names"])
+        )
+        label_map = {k: idx for idx, k in enumerate(meta_data["fine_label_names"])}
+        tokenized_txts = [
+            text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
+            for txt in prompts
+        ]
+
+        pprint(label_map)
+
+        txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
+
+        test_dl = td.DataLoader(
+            cifar100_dataset, batch_size=1, shuffle=False, num_workers=1
+        )
+
+        acc = evaluate(test_dl, model, txt_tensors)
+        print(acc)
