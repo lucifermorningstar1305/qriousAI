@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     train_dl = td.DataLoader(
         train_ds,
-        batch_size=32000,
+        batch_size=2048,
         shuffle=True,
         num_workers=10,
         pin_memory=True,
