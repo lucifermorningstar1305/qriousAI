@@ -208,7 +208,7 @@ if __name__ == "__main__":
         train_ds,
         batch_size=512,
         shuffle=True,
-        num_workers=4,
+        num_workers=12,
         pin_memory=True,
     )
 
@@ -216,7 +216,7 @@ if __name__ == "__main__":
         val_ds,
         batch_size=32,
         shuffle=False,
-        num_workers=4,
+        num_workers=12,
         pin_memory=True,
     )
 
