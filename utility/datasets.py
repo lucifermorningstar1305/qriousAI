@@ -247,3 +247,62 @@ class CocoDataset(td.Dataset):
         )
 
         return {"img": img, "txt": tok_res, "neg_img": neg_img, "neg_txt": neg_tok_res}
+
+
+class CocoCLIPDataset(td.Dataset):
+    def __init__(
+        self,
+        data: Any,
+        text_tokenizer: Callable,
+        img_processor: Callable,
+        resize: Optional[Tuple] = None,
+        transformations: Callable = T.DEFAULT_IMAGE_TRANSFORM,
+    ):
+        self.data = data
+        self.text_tokenizer = text_tokenizer
+        self.img_processor = img_processor
+        self.resize = resize
+        self.transformations = transformations
+        self.text_transformations = alb.Compose(
+            [T.NormalizeCaption(max_caption_length=77)]
+        )
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def __getitem__(self, idx: int):
+        rec = self.data.iloc[idx]
+
+        img_file_name = rec["file_name"]
+        img_file_root_path = rec["image_path"]
+        text = rec["caption"]
+
+        img_path = os.path.join(img_file_root_path.split(".")[0], img_file_name)
+
+        img = Image.open(img_path).convert("RGB")
+
+        if self.resize is not None:
+            img = img.resize(
+                (self.resize[1], self.resize[0]), resample=Image.Resampling.BILINEAR
+            )
+
+        img = np.array(img)
+
+        trans_data = self.transformations(image=img, caption=text)
+
+        img, text = trans_data["image"], trans_data["caption"]
+
+        img = self.img_processor(img)
+
+        text_obj = self.text_transformations(caption=text)
+        text = text_obj["caption"]
+
+        tok_res = self.text_tokenizer(
+            text,
+            max_length=77,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        return {"img": img, "txt": tok_res}
