@@ -292,7 +292,7 @@ class CocoCLIPDataset(td.Dataset):
 
         img, text = trans_data["image"], trans_data["caption"]
 
-        img = self.img_processor(img)
+        img = self.img_processor(img, return_tensors="pt")
 
         text_obj = self.text_transformations(caption=text)
         text = text_obj["caption"]
