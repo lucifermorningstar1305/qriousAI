@@ -227,7 +227,7 @@ if __name__ == "__main__":
         train_ds,
         batch_size=config["train_batch_size"],
         shuffle=True,
-        num_workers=os.cpu_count(),
+        num_workers=10,
         pin_memory=True,
     )
 
@@ -235,7 +235,7 @@ if __name__ == "__main__":
         val_ds,
         batch_size=config["val_batch_size"],
         shuffle=False,
-        num_workers=os.cpu_count(),
+        num_workers=10,
         pin_memory=True,
     )
 
