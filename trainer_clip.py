@@ -26,9 +26,9 @@ class LitCLIP(pl.LightningModule):
         text: torch.Tensor,
     ) -> Tuple:
         model_out = self.model(
-            input_ids=text["input_ids"],
-            attention_mask=text["attention_mask"],
-            pixel_values=image["pixel_values"],
+            input_ids=text["input_ids"].squeeze(),
+            attention_mask=text["attention_mask"].squeeze(),
+            pixel_values=image["pixel_values"].squeeze(),
             return_loss=True,
             return_dict=True,
         )
