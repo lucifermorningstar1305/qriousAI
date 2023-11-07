@@ -54,6 +54,7 @@ class LitCLIP(pl.LightningModule):
             on_epoch=True,
             rank_zero_only=True,
             logger=True,
+            sync_dist=True,
         )
 
         return {"loss": loss}
@@ -69,6 +70,7 @@ class LitCLIP(pl.LightningModule):
             on_epoch=True,
             rank_zero_only=True,
             logger=True,
+            sync_dist=True,
         )
 
         return {"val_loss": loss}
