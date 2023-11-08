@@ -18,6 +18,7 @@ import sys
 import argparse
 import yaml
 import pickle
+import json
 
 from sklearn.metrics import accuracy_score, top_k_accuracy_score
 from trainer import LitMobileCLiP
@@ -163,6 +164,50 @@ def unpickle(file_path: str) -> Dict:
     return data
 
 
+def fgvc_aircraft_res(
+    root_dir: str,
+    annotation_level: str,
+    transformations: Callable,
+    text_tokenizer: Callable,
+    meta_path: str,
+    prompt_template: str,
+    model: Callable,
+    cfg: Dict,
+):
+    """Function to obtain results for the FGVC Aircraft dataset"""
+
+    fgcv_dataset = torchvision.datasets.FGVCAircraft(
+        root=root_dir,
+        split="test",
+        annotation_level=annotation_level,
+        transform=transformations,
+        download=True,
+    )
+
+    with open(meta_path, "r") as fp:
+        meta_data = fp.readlines()
+
+    label_map = {k.replace("\n", ""): idx for idx, k in enumerate(meta_data)}
+    pprint(label_map)
+
+    prompts = list(
+        map(
+            lambda x: prompt_template + " " + x.replace("\n", ""),
+            meta_data,
+        )
+    )
+    tokenized_txts = [
+        text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
+        for txt in prompts
+    ]
+
+    txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
+    test_dl = td.DataLoader(fgcv_dataset, batch_size=1, shuffle=False, num_workers=1)
+    acc = evaluate(test_dl, model, txt_tensors)
+
+    print(acc)
+
+
 if __name__ == "__main__":
     torch.cuda.empty_cache()
 
@@ -218,7 +263,7 @@ if __name__ == "__main__":
     dataset_name = args.dataset
     model_checkpoint = args.model_checkpoint
     config_path = args.config_path
-    prompt_template = args.prompt
+    prompt_template = args.prompt.strip(" ")
 
     cfg = None
     with open(config_path, "r") as fp:
@@ -295,6 +340,151 @@ if __name__ == "__main__":
 
         test_dl = td.DataLoader(
             cifar100_dataset, batch_size=1, shuffle=False, num_workers=1
+        )
+
+        acc = evaluate(test_dl, model, txt_tensors)
+        print(acc)
+
+    elif dataset_name == "food101":
+        food101_dataset = torchvision.datasets.Food101(
+            root=root_dir, split="test", transform=transformations, download=True
+        )
+
+        meta_path = os.path.join(root_dir, "food-101/meta/labels.txt")
+        with open(meta_path, "r") as fp:
+            meta_data = fp.readlines()
+
+        label_map = {k.replace("\n", ""): idx for idx, k in enumerate(meta_data)}
+        prompts = list(
+            map(lambda x: prompt_template + " " + x.replace("\n", ""), meta_data)
+        )
+        tokenized_txts = [
+            text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
+            for txt in prompts
+        ]
+
+        pprint(label_map)
+
+        txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
+        test_dl = td.DataLoader(
+            food101_dataset, batch_size=1, shuffle=False, num_workers=1
+        )
+
+        acc = evaluate(test_dl, model, txt_tensors)
+        print(acc)
+
+    elif dataset_name == "fgcv_aircraft":
+        meta_path_families = os.path.join(
+            root_dir, "fgvc-aircraft-2013b/data/families.txt"
+        )
+        meta_path_variant = os.path.join(
+            root_dir, "fgvc-aircraft-2013b/data/variants.txt"
+        )
+        meta_path_manufactures = os.path.join(
+            root_dir, "fgvc-aircraft-2013b/data/manufacturers.txt"
+        )
+
+        print("########## Annotation Level : Family ############")
+        fgvc_aircraft_res(
+            root_dir=root_dir,
+            annotation_level="family",
+            transformations=transformations,
+            text_tokenizer=text_tokenizer,
+            meta_path=meta_path_families,
+            prompt_template=prompt_template,
+            model=model,
+            cfg=cfg,
+        )
+
+        print("########## Annotation Level : Variant ############")
+        fgvc_aircraft_res(
+            root_dir=root_dir,
+            annotation_level="variant",
+            transformations=transformations,
+            text_tokenizer=text_tokenizer,
+            meta_path=meta_path_variant,
+            prompt_template=prompt_template,
+            model=model,
+            cfg=cfg,
+        )
+
+        print("########## Annotation Level : Manufacturer ############")
+        fgvc_aircraft_res(
+            root_dir=root_dir,
+            annotation_level="manufacturer",
+            transformations=transformations,
+            text_tokenizer=text_tokenizer,
+            meta_path=meta_path_manufactures,
+            prompt_template=prompt_template,
+            model=model,
+            cfg=cfg,
+        )
+
+    elif dataset_name == "caltech_256":
+        transformations_caltech = torchvision.transforms.Compose(
+            [
+                torchvision.transforms.Resize((224, 224)),
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.Lambda(
+                    lambda x: x.repeat(3, 1, 1) if x.shape[0] == 1 else x
+                ),
+                torchvision.transforms.Normalize(
+                    mean=IMAGENET_COLOR_MEAN, std=IMAGENET_COLOR_STD
+                ),
+            ]
+        )
+        caltech_dataset = torchvision.datasets.Caltech256(
+            root=root_dir, transform=transformations_caltech, download=True
+        )
+
+        meta_path = os.path.join(root_dir, "caltech256/caltech_labels.json")
+
+        with open(meta_path, "r") as fp:
+            meta_data = json.load(fp)
+
+        pprint(meta_data)
+
+        prompts = [prompt_template + " " + labels for labels, _ in meta_data.items()]
+
+        tokenized_txts = [
+            text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
+            for txt in prompts
+        ]
+
+        txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
+        test_dl = td.DataLoader(
+            caltech_dataset, batch_size=1, shuffle=False, num_workers=1
+        )
+
+        acc = evaluate(test_dl, model, txt_tensors)
+        print(acc)
+
+    elif dataset_name == "oxford_pets":
+        oxford_pets_dataset = torchvision.datasets.OxfordIIITPet(
+            root=root_dir,
+            split="test",
+            transform=transformations,
+            target_types="category",
+            download=True,
+        )
+
+        meta_path = os.path.join(root_dir, "oxford-iiit-pet/oxford_pets_labels.json")
+
+        with open(meta_path, "r") as fp:
+            meta_data = json.load(fp)
+
+        pprint(dict(sorted(meta_data.items(), key=lambda x: x[1])))
+
+        prompts = [prompt_template + " " + labels for labels, _ in meta_data.items()]
+
+        tokenized_txts = [
+            text_process(txt, text_tokenizer, cfg["text_model"]["max_seq_length"])
+            for txt in prompts
+        ]
+
+        txt_tensors = get_text_tensors(text_captions=tokenized_txts, model=model)
+        test_dl = td.DataLoader(
+            oxford_pets_dataset, batch_size=1, shuffle=False, num_workers=1
         )
 
         acc = evaluate(test_dl, model, txt_tensors)
