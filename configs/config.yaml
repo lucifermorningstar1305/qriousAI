@@ -36,7 +36,7 @@ text_model:
   prior: False
 
 image_model:
-  model_name: "mobilenetv2"
+  model_name: "mobilenetv3_large"
   alpha: 1.0
   output_dim: 1280 # #1024 #
   prior: True
