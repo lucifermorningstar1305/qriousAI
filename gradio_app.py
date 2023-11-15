@@ -13,6 +13,8 @@ import os
 from trainer import LitMobileCLiP
 from models.grad_cam_models import ImageEncoder
 from transformers import CLIPTokenizerFast
+from functools import partial
+
 
 from PIL import Image
 
@@ -61,11 +63,14 @@ def preprocess_text(prompt: str, tokenizer: Callable, max_length: int) -> torch.
 
 
 def get_text_tensors(
-    txt: str, tokenizer: Callable, max_length: int, model: nn.Module
+    txt: str, tokenizer: Callable, max_length: int, model: nn.Module, purpose: str
 ) -> torch.Tensor:
     """Function to calculate the get the tensors for each label"""
 
-    prompt = f"A photo of a {txt}"
+    if purpose == "zero_shot":
+        prompt = f"A photo of a {txt}"
+    else:
+        prompt = txt
 
     tokenized_txt = preprocess_text(
         prompt=prompt, tokenizer=tokenizer, max_length=max_length
@@ -131,11 +136,14 @@ def superimpose_gradcam(img: Image.Image, heatmap: np.ndarray):
     return super_imposed_img
 
 
-def evaluate(img: Image.Image, txt: str):
+def evaluate(img: Image.Image, txt: str, purpose: str = "zero_shot"):
     """Function to evaluate the clip model"""
 
-    txts = txt.split(",")
-    txts = list(map(lambda x: x.strip(), txts))
+    if purpose == "zero_shot":
+        txts = txt.split(",")
+        txts = list(map(lambda x: x.strip(), txts))
+    else:
+        txts = txt
 
     cfg = None
     with open("./configs/config.yaml", "r") as fp:
@@ -160,6 +168,7 @@ def evaluate(img: Image.Image, txt: str):
             tokenizer=tokenizer,
             max_length=cfg["text_model"]["max_seq_length"],
             model=lit_model,
+            purpose=purpose,
         )
         for label in txts
     ]
@@ -176,11 +185,14 @@ def evaluate(img: Image.Image, txt: str):
     cv2.imwrite("./media/grad_cam_output.jpg", grad_cam_img)
 
     pil_grad_cam_img = Image.open("./media/grad_cam_output.jpg")
-    ret_labels = {label: float(round(sim, 2)) for label, sim in zip(txts, res)}
-    print(ret_labels)
-    print(res)
+    if purpose == "zero_shot":
+        ret_labels = {label: float(round(sim, 2)) for label, sim in zip(txts, res)}
+        print(ret_labels)
+        print(res)
 
-    return pil_grad_cam_img, ret_labels
+        return pil_grad_cam_img, ret_labels
+    else:
+        return pil_grad_cam_img
 
 
 with gr.Blocks() as demo:
@@ -193,29 +205,54 @@ with gr.Blocks() as demo:
     """
     )
 
-    with gr.Row():
-        with gr.Column(scale=1, min_width=300):
-            img = gr.Image(type="pil", label="Image", interactive=True)
-            txt = gr.Textbox(
-                value="",
-                placeholder="cat, dog, bird, chair",
-                max_lines=100,
-                label="Labels",
-                info="Prompt: A photo of a object",
-            )
+    with gr.Tab("Zero-shot classification"):
+        with gr.Row():
+            with gr.Column(scale=1, min_width=300):
+                img = gr.Image(type="pil", label="Image", interactive=True)
+                txt = gr.Textbox(
+                    value="",
+                    placeholder="cat, dog, bird, chair",
+                    max_lines=100,
+                    label="Labels",
+                    info="Prompt: A photo of a object",
+                )
 
-        with gr.Column(scale=1, min_width=400):
-            out_img = gr.Image(
-                type="pil", label="Output", height=320, width=640, interactive=False
-            )
-            out_labels = gr.Label(num_top_classes=3)
+            with gr.Column(scale=1, min_width=400):
+                out_img = gr.Image(
+                    type="pil", label="Output", height=320, width=640, interactive=False
+                )
+                out_labels = gr.Label(num_top_classes=3)
 
-    eval_btn = gr.Button("Evaluate")
-    eval_btn.click(
-        fn=evaluate,
+        zero_shot_btn = gr.Button("Evaluate")
+
+    with gr.Tab("Visual Grounding"):
+        with gr.Row():
+            with gr.Column(scale=1, min_width=300):
+                img2 = gr.Image(type="pil", label="Image", interactive=True)
+                txt2 = gr.Textbox(
+                    value="",
+                    placeholder="Enter your prompt",
+                    max_lines=20,
+                    label="Prompt",
+                    info="Prompt: A beautiful dog",
+                )
+            with gr.Column(scale=1, min_width=400):
+                out_img2 = gr.Image(type="pil", label="Output", interactive=False)
+
+        visual_ground_btn = gr.Button("Check")
+
+    zero_shot_btn.click(
+        fn=partial(evaluate, purpose="zero_shot"),
         inputs=[img, txt],
         outputs=[out_img, out_labels],
         api_name="zero_shot",
+    )
+
+    visual_ground_btn.click(
+        fn=partial(evaluate, purpose="visual_ground"),
+        inputs=[img2, txt2],
+        outputs=[out_img2],
+        api_name="visual_ground",
     )
 
 
