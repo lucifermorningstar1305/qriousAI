@@ -159,7 +159,7 @@ if __name__ == "__main__":
         ["file_name", "image_path", "caption"]
     ).sample(fraction=data_size, seed=32)
     val_csv_data = val_csv_data.select(["file_name", "image_path", "caption"]).sample(
-        n=2000, seed=32
+        fraction=data_size, seed=32
     )
     train_csv_data = train_csv_data.to_pandas()
     val_csv_data = val_csv_data.to_pandas()
