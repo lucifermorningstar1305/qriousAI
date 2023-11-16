@@ -186,14 +186,14 @@ class CocoDataset(td.Dataset):
         img_file_root_path = rec["image_path"]
         text = rec["caption"]
 
-        img_path = os.path.join(img_file_root_path.split(".")[0], img_file_name)
+        img_path = os.path.join(img_file_root_path, img_file_name)
 
         neg_rec = self.data.loc[self.data["file_name"] != img_file_name].sample(n=1)
         neg_img_file_name = neg_rec["file_name"].values[0]
         neg_text = neg_rec["caption"].values[0]
 
         neg_img_path = os.path.join(
-            img_file_root_path.split(".")[0],
+            img_file_root_path,
             neg_img_file_name,
         )
 
