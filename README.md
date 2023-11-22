@@ -4,12 +4,12 @@ In this project we tried to observe if mobile models have the capacity of unders
 
 ### Zero-shot Capabilities
 
-![[zero_shot.png]]
+![[media/zero_shot.png]]
 
 The model shows the capability of possessing Zero-Shot classification even though having only $44M$ parameters compared to the **CLIP** model.
 
 ### Visual-Text grounding
-![[visual_ground.png]]
+![[media/visual_ground.png]]
 
 When the model was prompted with recognizing specific object in an image, the model was able to highlight that specific object, as shown in the above figure, indicating that the model possess the capability of visual-text grounding. 
 
@@ -43,14 +43,14 @@ python evaluate_models.py --root_dir <path to store the evaluation dataset>\
 ```
 
 ## Results on Standard Benchmark
-![[zero_shot_accs_chart.png]]
+![[media/zero_shot_accs_chart.png]]
 The above chart indicates the `top-1` and `top-5` accuracy of the model on standard Computer vision benchmarks. The reason for such low scores compared to the original **CLIP** is the less amount of data being used for training. With more data these accuracies can be enhanced.
 
 ## Inaccurate Results
 
 There are cases where the model does fail to perform zero-shot or locate specific objects in an image. The following figure highlights those cases:
 
-![[inaccurate_results.png]]
+![[media/inaccurate_results.png]]
 
 The first figure showcases the failing of zero-shot classification, where given an image of a *modern concept car*, the model classifies the image as a *jet*. 
 
